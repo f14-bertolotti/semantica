@@ -7,6 +7,6 @@ def loss(): pass
 @loss.group(invoke_without_command=True)
 @click.pass_obj
 def cross_entropy(trainer):
-    def wrapped(prd, tgt, **kwargs): 
-        return torch.nn.functional.cross_entropy(prd, tgt)
-    trainer.set_loss(wrapped)
+    def wrapped(logits, tgt, **kwargs): 
+        return torch.nn.functional.cross_entropy(logits, tgt)
+    trainer.set_loss_fn(wrapped)

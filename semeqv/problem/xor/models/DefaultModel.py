@@ -34,8 +34,8 @@ class DefaultModel(torch.nn.Module):
     def forward(self, src, tgt):
         embeddings = self.embedding(src)
         encoded    = self.encoder(embeddings).mean(1)
-        preds      = self.ff(encoded)
-        return {"prd" : preds}
+        logits      = self.ff(encoded)
+        return {"logits": logits, "prd" : logits.argmax(-1)[0]}
 
 @click.group(invoke_without_command=True)
 @click.option("--layers"           , "layers"           , type=int   , default=3)

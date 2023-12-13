@@ -1,5 +1,7 @@
 from semeqv.problem.optimizers import optimizers
+from semeqv.problem.metrics import metrics
 from semeqv.problem.losses import loss
+from semeqv.problem.bars import bars
 from semeqv.problem.xor import xor
 from semeqv import train, Trainer
 import click
@@ -13,20 +15,21 @@ trainer = Trainer()
 def cli(context, epochs):
     context.obj = trainer.set_epochs(epochs)
 
-
-
 cli.add_command(loss)
+cli.add_command(metrics)
+cli.add_command(bars)
 cli.add_command(xor)
 cli.add_command(optimizers)
 cli.add_command(train)
 
+
+# put the cli group command as last command in the command tree
+# so that commands can be chained 
 def visit(command):
     if isinstance(command, click.core.Group) and not command.commands: return [command]
     elif isinstance(command, click.core.Group) and command.commands: return [c for cmd in command.commands.values() for c in visit(cmd)]
     else: return []
-for grp in visit(cli): 
-    print(grp)
-    grp.add_command(cli)
+for grp in visit(cli): grp.add_command(cli)
 
 if __name__ == "__main__":
     cli()
