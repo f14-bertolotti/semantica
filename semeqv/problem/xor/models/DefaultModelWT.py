@@ -1,7 +1,7 @@
 import torch
 import click
 
-class DefaultModel(torch.nn.Module):
+class DefaultModelWT(torch.nn.Module):
 
     def __init__(
             self,
@@ -31,12 +31,11 @@ class DefaultModel(torch.nn.Module):
             ),
             num_layers = layers
         )
-        if self.weight_tying: self.ff = torch.nn.Linear(embedding_size, tgt_vocab_size, device=device).weights
 
     def forward(self, src, tgt):
         embeddings = self.embedding(src)
         encoded    = self.encoder(embeddings)
-        logits     = self.ff(encoded)
+        logits     = encoded @ self.embedding.weight.T
         logits     = logits.view(logits.size(0)*logits.size(1),logits.size(2))
         return {"logits": logits, "prd" : logits.argmax(-1)}
 
@@ -51,9 +50,9 @@ class DefaultModel(torch.nn.Module):
 @click.option("--activation"       , "activation"       , type=str   , default="relu")
 @click.option("--device"           , "device"           , type=str   , default="cpu")
 @click.pass_obj
-def default_model(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, dropout, activation, device):
+def default_model_wt(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, dropout, activation, device):
     trainer.set_model(
-        DefaultModel(
+        DefaultModelWT(
             layers           = layers,
             src_vocab_size   = src_vocab_size,
             tgt_vocab_size   = tgt_vocab_size,

@@ -21,14 +21,19 @@ class DefaultDataset(BaseDataset):
             zero_semeqv_distribution = [1],
             one_semeqv_distribution  = [1],
             seed                     = 42,
+            device                   = "cpu",
             split                    = "train"
         ):
         self.generator = random.Random(seed)
+        self.zero_semeqv_distribution = zero_semeqv_distribution
+        self.one_semeqv_distribution  =  one_semeqv_distribution
+        self.device = device
 
         # build the dataset with all possible binary combinations
         samples = [list(map(int,bin(x)[2:])) for x in range(2**sample_size - 1)]
         samples = [[0]*(sample_size-len(x))+x for x in samples]
-        predictions = [sum(data)%2 for data in samples]
+        self.generator.shuffle(samples)
+        predictions = [sum(data)%2+2 for data in samples]
 
         # build train/validation/test splits
         split2samples = {
@@ -42,31 +47,51 @@ class DefaultDataset(BaseDataset):
             "test"       : predictions[len(trainsplit)+len(validsplit):]
         }
     
-        # map the dataset split to the current split and add semeqv symbols according to the provided distribution
+        # map the dataset to the correct split
         samples = split2samples[split]
-        samples = [list(map(lambda x: self.generator.choices(range(len(zero_semeqv_distribution)),weights=zero_semeqv_distribution,k=1)[0] if x==0 else len(zero_semeqv_distribution), sample)) for sample in samples]
-        samples = [list(map(lambda x: self.generator.choices(range(len(zero_semeqv_distribution),len(zero_semeqv_distribution)+len(one_semeqv_distribution)),weights=one_semeqv_distribution,k=1)[0] if x==len(zero_semeqv_distribution) else x, sample)) for sample in samples]
         predictions = split2predictions[split]
-        predictions = list(map(lambda x: x, predictions))
+
+        # map from binary value to semeqv symbols 
+        self.bin2eqv = {
+            0 : lambda: self.generator.choices(range(len(zero_semeqv_distribution)),weights=zero_semeqv_distribution,k=1)[0],
+            1 : lambda: self.generator.choices(range(len(zero_semeqv_distribution),len(zero_semeqv_distribution)+len(one_semeqv_distribution)),weights=one_semeqv_distribution,k=1)[0],
+            2 : lambda: len(zero_semeqv_distribution) + len(one_semeqv_distribution),
+            3 : lambda: 1 + len(zero_semeqv_distribution) + len(one_semeqv_distribution)
+        }
 
         # from list dataset to torch dataset
-        self.dataset = (torch.tensor(samples), torch.tensor(predictions))
+        self.dataset = (samples, predictions)
+
+    def save(self):
+        return self.generator.getstate()
+
+    def restore(self, state):
+        return self.generator.setstate(state)
 
     def __len__(self): 
         return len(self.dataset[0])
 
     def __getitem__(self, idx): 
-        return self.dataset[0][idx], self.dataset[1][idx]
+        src = self.dataset[0][idx] + [self.dataset[1][idx]]
+        src = [self.bin2eqv[e]() for e in src]
+        mask_idx = self.generator.randint(0,len(src)-1)
+        tgt = [-100] * len(src)
+        tgt[mask_idx] = src[mask_idx]
+        src[mask_idx] = len(self.zero_semeqv_distribution) + len(self.one_semeqv_distribution) + 2
+        return src, tgt
+
+    def todevice(self, src, tgt):
+        return {"src" : src.to(self.device), "tgt": tgt.to(self.device)}
 
     def collate_fn(self, data): 
-        return {"src" : torch.stack([d[0] for d in data]),
-                "tgt" : torch.stack([d[1] for d in data])}
+        return {"src" : torch.tensor([d[0] for d in data]),
+                "tgt" : torch.tensor([d[1] for d in data]).flatten()}
 
 @click.group()
 def default_dataset(): pass
 
 
-@default_dataset.group(invoke_without_command=True)
+@default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--size"        , "sample_size"              , type=int               , default=10)
 @click.option("--zero_dst"    , "zero_semeqv_distribution" , cls=DistributionOption , default="[1]")
 @click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
@@ -75,8 +100,9 @@ def default_dataset(): pass
 @click.option("--num_workers" , "num_workers"              , type=int               , default=1)
 @click.option("--shuffle"     , "shuffle"                  , type=bool              , default=True)
 @click.option("--drop_last"   , "drop_last"                , type=bool              , default=True)
+@click.option("--device"      , "device"                   , type=str               , default="cpu")
 @click.pass_obj
-def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last):
+def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device):
     trainer.set_trainsplit(
         torch.utils.data.DataLoader(
             dataset := DefaultDataset(
@@ -84,6 +110,7 @@ def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
                 zero_semeqv_distribution = zero_semeqv_distribution,
                 one_semeqv_distribution  = one_semeqv_distribution,
                 seed                     = seed,
+                device                   = device,
                 split                    = "train"
             ),
             batch_size  = batch_size,
@@ -94,7 +121,7 @@ def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
         )
     )
 
-@default_dataset.group(invoke_without_command=True)
+@default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--size"        , "sample_size"              , type=int               , default=10)
 @click.option("--zero_dst"    , "zero_semeqv_distribution" , cls=DistributionOption , default="[1]")
 @click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
@@ -103,8 +130,9 @@ def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
 @click.option("--num_workers" , "num_workers"              , type=int               , default=1)
 @click.option("--shuffle"     , "shuffle"                  , type=bool              , default=True)
 @click.option("--drop_last"   , "drop_last"                , type=bool              , default=True)
+@click.option("--device"      , "device"                   , type=str               , default="cpu")
 @click.pass_obj
-def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last):
+def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device):
     trainer.set_validsplit(
         torch.utils.data.DataLoader(
             dataset := DefaultDataset(
@@ -112,6 +140,7 @@ def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
                 zero_semeqv_distribution = zero_semeqv_distribution,
                 one_semeqv_distribution  = one_semeqv_distribution,
                 seed                     = seed,
+                device                   = device,
                 split                    = "validation"
             ),
             batch_size  = batch_size,
@@ -122,7 +151,7 @@ def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
         )
     )
 
-@default_dataset.group(invoke_without_command=True)
+@default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--size"        , "sample_size"              , type=int               , default=10)
 @click.option("--zero_dst"    , "zero_semeqv_distribution" , cls=DistributionOption , default="[1]")
 @click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
@@ -131,21 +160,23 @@ def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
 @click.option("--num_workers" , "num_workers"              , type=int               , default=1)
 @click.option("--shuffle"     , "shuffle"                  , type=bool              , default=False)
 @click.option("--drop_last"   , "drop_last"                , type=bool              , default=False)
+@click.option("--device"      , "device"                   , type=str               , default="cpu")
 @click.pass_obj
-def testsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last):
+def testsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device):
     trainer.set_testsplit(
         torch.utils.data.DataLoader(
-        dataset := DefaultDataset(
-            sample_size              = sample_size,
-            zero_semeqv_distribution = zero_semeqv_distribution,
-            one_semeqv_distribution  = one_semeqv_distribution,
-            seed                     = seed,
-            split                    = "validation"
-        ),
-            batch_size  = batch_size,
-            num_workers = num_workers,
-            shuffle     = shuffle,
-            drop_last   = drop_last,
-            collate_fn  = dataset.collate_fn
-        )
+            dataset := DefaultDataset(
+                sample_size              = sample_size,
+                zero_semeqv_distribution = zero_semeqv_distribution,
+                one_semeqv_distribution  = one_semeqv_distribution,
+                seed                     = seed,
+                device                   = device,
+                split                    = "validation"
+            ),
+                batch_size  = batch_size,
+                num_workers = num_workers,
+                shuffle     = shuffle,
+                drop_last   = drop_last,
+                collate_fn  = dataset.collate_fn
+            )
     )

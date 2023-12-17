@@ -4,7 +4,7 @@ import click
 @click.group()
 def loss(): pass
 
-@loss.group(invoke_without_command=True)
+@loss.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.pass_obj
 def cross_entropy(trainer):
     def wrapped(logits, tgt, **kwargs): 

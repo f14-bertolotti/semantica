@@ -13,5 +13,8 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx): pass
 
     @abstractmethod
+    def todevice(self): pass
+
+    @abstractmethod
     def collate_fn(self, data): pass
 

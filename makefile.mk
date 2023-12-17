@@ -1,0 +1,54 @@
+NUM_WORKES=1
+RESTOREPATH=""
+DIRPATH="./"
+SEED=42
+EPOCHS=10
+DEVICE="cuda:0"
+COMPILE=True
+ETC=0
+LR=0.0001
+
+test:
+	PYTHONPATH=:.:semeqv \
+	python3 semeqv/cli.py \
+		--seed ${SEED} \
+		--compile ${COMPILE} \
+		--epochs ${EPOCHS} \
+	cli bars trainbar --color "white" \
+	cli bars validbar --color "blue" \
+	cli loss cross-entropy \
+	cli xor default-dataset trainsplit \
+		--zero_dst "[.5,.5]" \
+		--one_dst "[.1,.9]" \
+		--drop_last False \
+		--batch_size 128 \
+		--size 5 \
+		--num_workers ${NUM_WORKERS} \
+		--device ${DEVICE} \
+	cli xor default-dataset validsplit \
+		--zero_dst "[.5,.5]" \
+		--one_dst "[.1,.9]" \
+		--drop_last False \
+		--batch_size 128 \
+		--size 5 \
+		--num_workers ${NUM_WORKERS} \
+		--device ${DEVICE} \
+	cli xor default-model-wt \
+		--heads 4 \
+		--layers 3 \
+		--embedding_size 128 \
+		--feedforward_size 512 \
+		--src_vocab_size 7 \
+		--tgt_vocab_size 7 \
+		--device ${DEVICE} \
+	cli optimizers adam --learning_rate ${LR} \
+	cli savers default-saver \
+		--dirpath ${DIRPATH} \
+		--restorepath ${RESTOREPATH} \
+		--map_location ${DEVICE} \
+		--savelast False \
+		--savebest False \
+		--mode "max" \
+		--etc ${ETC} \
+	cli train
+
