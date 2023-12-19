@@ -1,3 +1,5 @@
+from semeqv.problem.callbacks import callbacks
+import click
 
 class DefaultCallback:
 
@@ -18,8 +20,8 @@ class DefaultCallback:
     def end_step(self, loss, data, pred):
         """ called at the end of each model prediction """
         prd, tgt = pred["prd"], data["tgt"]
-        acc = (tgt[tgt!=-100] == prd[tgt!=-100]).float().sum().item()
-        self.acc_sum = self.acc_sum + acc
+        self.cur_acc = (tgt[tgt!=-100] == prd[tgt!=-100]).float().sum().item()
+        self.acc_sum = self.acc_sum + self.cur_acc
         self.lss_sum = self.lss_sum + loss
         self.samples = self.samples + (tgt!=-100).sum().item()
 
@@ -46,4 +48,25 @@ class DefaultCallback:
     def get_step_description(self):
         results = self.get_cur_results()
         return f"a:{results[0]:.5f} l:{results[1]:.5f}"
+
+
+@click.group()
+def default(): pass
+callbacks.add_command(default)
+
+@default.group(invoke_without_command=True, context_settings={'show_default': True})
+@click.pass_obj
+def traincallback(trainer):
+    trainer.set_traincallback(DefaultCallback(trainer))
+
+@default.group(invoke_without_command=True, context_settings={'show_default': True})
+@click.pass_obj
+def validcallback(trainer):
+    trainer.set_validcallback(DefaultCallback(trainer))
+
+@default.group(invoke_without_command=True, context_settings={'show_default': True})
+@click.pass_obj
+def testcallback(trainer):
+    trainer.set_testcallback(DefaultCallback(trainer))
+
 

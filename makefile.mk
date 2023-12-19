@@ -15,10 +15,14 @@ test:
 		--seed ${SEED} \
 		--compile ${COMPILE} \
 		--epochs ${EPOCHS} \
-	cli callbacks cdists  traincallback \
+	cli callbacks cdists traincallback \
 		--etc 10 \
+		--step_log_path  "./train_step.log" \
+		--epoch_log_path "./train_epoch.log" \
 		--path "cdists" \
-	cli callbacks default validcallback \
+	cli callbacks log validcallback \
+		--step_log_path  "./valid_step.log" \
+		--epoch_log_path "./valid_epoch.log" \
 	cli loss cross-entropy \
 	cli xor default-dataset trainsplit \
 		--zero_dst "[.5,.5]" \
