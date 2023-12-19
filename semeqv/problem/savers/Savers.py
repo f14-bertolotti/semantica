@@ -4,7 +4,7 @@ import os
 
 class DefaultSaver:
 
-    name2best = {"max" : (lambda x,y: x>y, 0), "min" : (lambda x,y: x<y, float("inf"))}
+    name2best = {"max" : (lambda x,y: x>y, (0,)), "min" : (lambda x,y: x<y, (float("inf"),))}
 
     def __init__(self, restorepath="", map_location="cpu", dirpath="", epochs_to_checkpoint=0, bestfn="max", savelast=False, savebest=False): 
         self.epochs_to_checkpoint = epochs_to_checkpoint
@@ -19,7 +19,7 @@ class DefaultSaver:
     
     def save(self, epoch, value, optimizer, model, trainset, validset):
         savedict = {
-            "modelsd" : model.state_dict(),
+            "model"   : model.save(),
             "optimsd" : optimizer.state_dict(),
             "epoch"   : epoch,
             "value"   : value,
@@ -41,10 +41,10 @@ class DefaultSaver:
     def restore(self, model, optimizer, trainset, validset): 
         if self.restorepath == "": return 0
         checkpoint = torch.load(self.restorepath, map_location=self.map_location)
-        model.load_state_dict(checkpoint["modelsd"])
         optimizer.load_state_dict(checkpoint["optimsd"])
         torch     .set_rng_state( checkpoint['cpurng'].cpu())
         torch.cuda.set_rng_state(checkpoint['cudarng'].cpu())
+        model   .restore(checkpoint["model"])
         trainset.restore(checkpoint["trainset"])
         validset.restore(checkpoint["validset"])
         epoch = checkpoint["epoch"]
@@ -52,7 +52,6 @@ class DefaultSaver:
         self.bestvl = checkpoint["bestv"]
         print(f"restored model of epoch {epoch} and value {value} with previous best {self.bestvl}")
         return checkpoint["epoch"] + 1
-
 
     
 @click.group()

@@ -1,7 +1,7 @@
 from semeqv.problem.optimizers import optimizers
 from semeqv.problem.losses import loss
 from semeqv.problem.savers import savers
-from semeqv.problem.bars   import bars
+from semeqv.problem.callbacks import callbacks
 from semeqv.problem.xor    import xor
 from semeqv import train, Trainer
 import random
@@ -22,19 +22,28 @@ def seed_everything(seed: int):
 
 trainer = Trainer()
 @click.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option("--compile", "compile", type=bool, default=True)
-@click.option("--epochs" , "epochs" , type=int , default=1)
-@click.option("--seed"   , "seed"   , type=int , default=42)
+@click.option("--compile" , "compile"  , type=bool, default=True)
+@click.option("--epochs"  , "epochs"   , type=int , default=1)
+@click.option("--seed"    , "seed"     , type=int , default=42)
+@click.option("--trainbar", "trainbar" , type=bool, default=True)
+@click.option("--validbar", "validbar" , type=bool, default=True)
+@click.option("--testbar" , "testbar"  , type=bool, default=True)
+@click.option("--epochbar", "epochbar" , type=bool, default=False)
 @click.pass_context
-def cli(context, compile, epochs, seed):
+def cli(context, compile, epochs, seed, trainbar, validbar, testbar, epochbar):
     if not context.obj: 
-        context.obj = trainer.set_epochs(epochs)
-        trainer.set_compile(compile)
+        context.obj = trainer \
+                .set_epochs(epochs) \
+                .set_compile(compile) \
+                .set_epochbar(epochbar) \
+                .set_trainbar(trainbar) \
+                .set_validbar(validbar) \
+                .set_testbar(testbar)
         seed_everything(seed)
 
 cli.add_command(savers)
 cli.add_command(loss)
-cli.add_command(bars)
+cli.add_command(callbacks)
 cli.add_command(xor)
 cli.add_command(optimizers)
 cli.add_command(train)

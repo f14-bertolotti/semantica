@@ -12,13 +12,19 @@ class DefaultModel(torch.nn.Module):
             feedforward_size = 512,
             heads            = 2,
             dropout          = .1,
+            semeqv_init      = tuple(),
             weight_tying     = False,
             activation       = "relu",
             device           = "cpu"):
         super().__init__()
-        self.weight_tying = weight_tying
 
         self.embedding = torch.nn.Embedding(src_vocab_size, embedding_size, device=device)
+
+        if semeqv_init[0] and semeqv_init[0]:
+            with torch.no_grad():
+                self.embedding.weight[:semeqv_init[0]] = self.embedding.weight[0]
+                self.embedding.weight[semeqv_init[0]:semeqv_init[0]+semeqv_init[1]] = self.embedding.weight[semeqv_init[0]]
+
         self.encoder   = torch.nn.TransformerEncoder(
             torch.nn.TransformerEncoderLayer(
                 d_model         = embedding_size,
@@ -31,27 +37,35 @@ class DefaultModel(torch.nn.Module):
             ),
             num_layers = layers
         )
-        if self.weight_tying: self.ff = torch.nn.Linear(embedding_size, tgt_vocab_size, device=device).weights
+        self.ff = self.embedding.weight.T if weight_tying else torch.nn.Linear(embedding_size, tgt_vocab_size, device=device, bias=False).weight.T
 
     def forward(self, src, tgt):
         embeddings = self.embedding(src)
         encoded    = self.encoder(embeddings)
-        logits     = self.ff(encoded)
+        logits     = encoded @ self.ff
         logits     = logits.view(logits.size(0)*logits.size(1),logits.size(2))
         return {"logits": logits, "prd" : logits.argmax(-1)}
 
+    def save(self):
+        return self.state_dict()
+
+    def restore(self, state_dict):
+        self.load_state_dict(state_dict)
+
 @click.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option("--layers"           , "layers"           , type=int   , default=3)
-@click.option("--src_vocab_size"   , "src_vocab_size"   , type=int   , default=2)
-@click.option("--tgt_vocab_size"   , "tgt_vocab_size"   , type=int   , default=2)
-@click.option("--embedding_size"   , "embedding_size"   , type=int   , default=128)
-@click.option("--feedforward_size" , "feedforward_size" , type=int   , default=512)
-@click.option("--heads"            , "heads"            , type=int   , default=2)
-@click.option("--dropout"          , "dropout"          , type=float , default=.1)
-@click.option("--activation"       , "activation"       , type=str   , default="relu")
-@click.option("--device"           , "device"           , type=str   , default="cpu")
+@click.option("--layers"           , "layers"           , type=int       , default=3)
+@click.option("--src_vocab_size"   , "src_vocab_size"   , type=int       , default=2)
+@click.option("--tgt_vocab_size"   , "tgt_vocab_size"   , type=int       , default=2)
+@click.option("--embedding_size"   , "embedding_size"   , type=int       , default=128)
+@click.option("--feedforward_size" , "feedforward_size" , type=int       , default=512)
+@click.option("--heads"            , "heads"            , type=int       , default=2)
+@click.option("--semeqvinit"       , "semeqvinit"       , type=(int,int) , default=(0,0))
+@click.option("--dropout"          , "dropout"          , type=float     , default=.1)
+@click.option("--weight_tying"     , "weight_tying"     , type=bool      , default=False)
+@click.option("--activation"       , "activation"       , type=str       , default="relu")
+@click.option("--device"           , "device"           , type=str       , default="cpu")
 @click.pass_obj
-def default_model(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, dropout, activation, device):
+def default_model(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, weight_tying, activation, device):
     trainer.set_model(
         DefaultModel(
             layers           = layers,
@@ -61,6 +75,8 @@ def default_model(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_siz
             feedforward_size = feedforward_size,
             heads            = heads,
             dropout          = dropout,
+            semeqv_init      = semeqvinit,
+            weight_tying     = weight_tying,
             activation       = activation,
             device           = device
         )

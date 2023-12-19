@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import tqdm, click, torch
+import termcolor, tqdm, click, torch
 
 class Trainer:
 
@@ -7,61 +7,106 @@ class Trainer:
     def set_trainsplit(self, value): self.trainsplit = value; return self
     def set_validsplit(self, value): self.validsplit = value; return self
     def  set_testsplit(self, value): self.testsplit  = value; return self
-    def      set_model(self, value): self.model      = value; return self
-    def    set_loss_fn(self, value): self.lossfn     = value; return self
-    def  set_optimizer(self, value): self.optimizer  = value; return self
-    def     set_epochs(self, value): self.epochs     = value; return self
-    def   set_trainbar(self, value): self.trainbar   = value; return self
-    def   set_validbar(self, value): self.validbar   = value; return self
-    def    set_testbar(self, value): self.testbar    = value; return self
-    def      set_saver(self, value): self.saver      = value; return self
-    def    set_compile(self, value): self.compile    = value; return self
+
+    def set_epochbar(self, value): self.epochbar = tqdm.tqdm if value else lambda x:x; return self
+    def set_trainbar(self, value): self.trainbar = tqdm.tqdm if value else lambda x:x; return self
+    def set_validbar(self, value): self.validbar = tqdm.tqdm if value else lambda x:x; return self
+    def  set_testbar(self, value): self.testbar  = tqdm.tqdm if value else lambda x:x; return self
+ 
+    def         set_model(self, value): self.model         = value; return self
+    def       set_loss_fn(self, value): self.lossfn        = value; return self
+    def     set_optimizer(self, value): self.optimizer     = value; return self
+    def        set_epochs(self, value): self.epochs        = value; return self
+    def set_traincallback(self, value): self.traincallback = value; return self
+    def set_validcallback(self, value): self.validcallback = value; return self
+    def  set_testcallback(self, value): self.testcallback  = value; return self
+    def         set_saver(self, value): self.saver         = value; return self
+    def       set_compile(self, value): self.compile       = value; return self
 
     @staticmethod
     @click.command()
     @click.pass_obj
     def train(trainer):
 
-        startepoch = trainer.saver.restore(trainer.model, trainer.optimizer, trainer.trainsplit.dataset, trainer.validsplit.dataset)
+        # starting training, initializing ###
+        trainer.traincallback.start()
+        trainer.validcallback.start()
 
+        # restore from a checkpoint if necessary ###
+        startepoch = trainer.saver.restore(
+            trainer.model, 
+            trainer.optimizer, 
+            trainer.trainsplit.dataset, 
+            trainer.validsplit.dataset
+        )
+
+        # compile model if trainer.model is set to true ###
+        # always keep the "uncompiled" version for checkpointing purposes
         uncompiled = trainer.model
         if trainer.compile:
             torch.set_float32_matmul_precision('high')
             trainer.model = torch.compile(trainer.model)
 
-        dists = []
-        for epoch in range(startepoch, trainer.epochs):
+        # main training loop ###
+        for epoch in trainer.epochbar(range(startepoch, trainer.epochs)):
             
+            # trainsplit ###
             trainer.model.train()
-            for i,batch in (bar:=tqdm.tqdm(enumerate(trainer.trainsplit,1), total=len(trainer.trainsplit))):
+            trainer.traincallback.start_epoch(epoch)
+            for step,batch in (bar:=trainer.trainbar(enumerate(trainer.trainsplit,1), total=len(trainer.trainsplit), colour="white")):
+                trainer.traincallback.start_step(step)
                 trainer.optimizer.zero_grad()
                 data = trainer.trainsplit.dataset.todevice(**batch)
                 pred = trainer.model(**data)
                 loss = trainer.lossfn(**(data | pred))
                 loss.backward()
                 trainer.optimizer.step()
-                trainer.trainbar(bar=bar, epoch=epoch, epochs=trainer.epochs, step=i, loss=loss.item(), mode="train", **(data | pred))
+                trainer.traincallback.end_step(
+                    loss = loss.item(),
+                    data = data,
+                    pred = pred)
+                bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.traincallback.get_step_description()}","white"))
+            result = trainer.traincallback.get_epoch_results()
+            trainer.traincallback.end_epoch()
 
+            # validation split ###
             trainer.model.eval()
-            for i,batch in (bar:=tqdm.tqdm(enumerate(trainer.validsplit,1), total=len(trainer.validsplit))):
+            trainer.validcallback.start_epoch(epoch)
+            for step,batch in (bar:=trainer.validbar(enumerate(trainer.validsplit,1), total=len(trainer.validsplit), colour="blue")):
+                trainer.validcallback.start_step(step)
                 data = trainer.trainsplit.dataset.todevice(**batch)
                 pred = trainer.model(**data)
                 loss = trainer.lossfn(**(data | pred))
-                trainer.validbar(bar=bar, epoch=epoch, epochs=trainer.epochs, step=i, loss=loss.item(), mode="valid", **(data | pred))
+                trainer.validcallback.end_step(
+                    loss = loss.item(),
+                    data = data,
+                    pred = pred)
+                bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.validcallback.get_step_description()}", "blue"))
+            result = trainer.validcallback.get_epoch_results()
+            trainer.validcallback.end_epoch()
 
-            trainer.saver.save(epoch, trainer.validbar.get_value(), trainer.optimizer, uncompiled, trainer.trainsplit.dataset, trainer.validsplit.dataset)
-            trainer.trainbar.end_epoch()
-            trainer.validbar.end_epoch()
+            # one epoch done, saving if necessary ###
+            trainer.saver.save(
+                epoch, 
+                result, 
+                trainer.optimizer, 
+                uncompiled, 
+                trainer.trainsplit.dataset, 
+                trainer.validsplit.dataset
+            )
+
+        # all epochs done, finishing ... ###
+        trainer.traincallback.end()
+        trainer.validcallback.end()
             
             #####
+            #dists.append(torch.cdist(trainer.model.embedding.weight,trainer.model.embedding.weight).detach().cpu().numpy())
 
-            dists.append(torch.cdist(trainer.model.embedding.weight,trainer.model.embedding.weight).detach().cpu().numpy())
-
-            if epoch == 500 or epoch % 5000 == 0:
-                for i,j in [(i,j) for i in range(trainer.model.embedding.weight.size(0)) for j in range(trainer.model.embedding.weight.size(0)) if i < j]:
-                    if   0 <= i < 2 and 0 <= j < 2: plt.plot([e[i,j] for e in dists], color="blue")
-                    elif 2 <= i < 4 and 2 <= j < 4: plt.plot([e[i,j] for e in dists], color="purple")
-                    elif i == 6 or j == 6: plt.plot([e[i,j] for e in dists], color="green")
-                    else: plt.plot([e[i,j] for e in dists], color="black")
-                plt.show()
-                plt.clf()
+            #if epoch == 500 or epoch % 1000 == 0:
+            #    for i,j in [(i,j) for i in range(trainer.model.embedding.weight.size(0)) for j in range(trainer.model.embedding.weight.size(0)) if i < j]:
+            #        if   0 <= i < 2 and 0 <= j < 2: plt.plot([e[i,j] for e in dists], color="blue")
+            #        elif 2 <= i < 4 and 2 <= j < 4: plt.plot([e[i,j] for e in dists], color="purple")
+            #        elif i == 6 or j == 6: plt.plot([e[i,j] for e in dists], color="green")
+            #        else: plt.plot([e[i,j] for e in dists], color="black")
+            #    plt.show()
+            #    plt.clf()

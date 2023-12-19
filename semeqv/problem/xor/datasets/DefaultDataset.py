@@ -74,7 +74,7 @@ class DefaultDataset(BaseDataset):
     def __getitem__(self, idx): 
         src = self.dataset[0][idx] + [self.dataset[1][idx]]
         src = [self.bin2eqv[e]() for e in src]
-        mask_idx = self.generator.randint(0,len(src)-1)
+        mask_idx = self.generator.randint(0,len(src)-2)
         tgt = [-100] * len(src)
         tgt[mask_idx] = src[mask_idx]
         src[mask_idx] = len(self.zero_semeqv_distribution) + len(self.one_semeqv_distribution) + 2

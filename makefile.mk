@@ -1,4 +1,5 @@
-NUM_WORKES=1
+WEIGHT_TYING=False
+NUM_WORKERS=1
 RESTOREPATH=""
 DIRPATH="./"
 SEED=42
@@ -14,32 +15,36 @@ test:
 		--seed ${SEED} \
 		--compile ${COMPILE} \
 		--epochs ${EPOCHS} \
-	cli bars trainbar --color "white" \
-	cli bars validbar --color "blue" \
+	cli callbacks cdists  traincallback \
+		--etc 10 \
+		--path "cdists" \
+	cli callbacks default validcallback \
 	cli loss cross-entropy \
 	cli xor default-dataset trainsplit \
 		--zero_dst "[.5,.5]" \
-		--one_dst "[.1,.9]" \
+		--one_dst "[1]" \
 		--drop_last False \
 		--batch_size 128 \
-		--size 5 \
+		--size 12 \
 		--num_workers ${NUM_WORKERS} \
 		--device ${DEVICE} \
 	cli xor default-dataset validsplit \
 		--zero_dst "[.5,.5]" \
-		--one_dst "[.1,.9]" \
+		--one_dst "[1]" \
 		--drop_last False \
 		--batch_size 128 \
-		--size 5 \
+		--size 12 \
 		--num_workers ${NUM_WORKERS} \
 		--device ${DEVICE} \
-	cli xor default-model-wt \
+	cli xor default-model \
 		--heads 4 \
 		--layers 3 \
 		--embedding_size 128 \
 		--feedforward_size 512 \
 		--src_vocab_size 7 \
 		--tgt_vocab_size 7 \
+		--semeqvinit 2 2 \
+		--weight_tying ${WEIGHT_TYING} \
 		--device ${DEVICE} \
 	cli optimizers adam --learning_rate ${LR} \
 	cli savers default-saver \
