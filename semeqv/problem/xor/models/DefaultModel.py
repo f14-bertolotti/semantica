@@ -12,7 +12,7 @@ class DefaultModel(torch.nn.Module):
             feedforward_size = 512,
             heads            = 2,
             dropout          = .1,
-            semeqv_init      = tuple(),
+            semeqv_init      = (0,0),
             weight_tying     = False,
             activation       = "relu",
             device           = "cpu"):

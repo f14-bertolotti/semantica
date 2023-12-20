@@ -1,5 +1,6 @@
 matplotlib
 termcolor
+pandas
 click
 numpy
 torch

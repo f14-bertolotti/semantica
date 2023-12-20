@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import termcolor, tqdm, click, torch
+import termcolor, numpy, tqdm, click, torch
 
 class Trainer:
 
@@ -98,15 +98,4 @@ class Trainer:
         # all epochs done, finishing ... ###
         trainer.traincallback.end()
         trainer.validcallback.end()
-            
-            #####
-            #dists.append(torch.cdist(trainer.model.embedding.weight,trainer.model.embedding.weight).detach().cpu().numpy())
-
-            #if epoch == 500 or epoch % 1000 == 0:
-            #    for i,j in [(i,j) for i in range(trainer.model.embedding.weight.size(0)) for j in range(trainer.model.embedding.weight.size(0)) if i < j]:
-            #        if   0 <= i < 2 and 0 <= j < 2: plt.plot([e[i,j] for e in dists], color="blue")
-            #        elif 2 <= i < 4 and 2 <= j < 4: plt.plot([e[i,j] for e in dists], color="purple")
-            #        elif i == 6 or j == 6: plt.plot([e[i,j] for e in dists], color="green")
-            #        else: plt.plot([e[i,j] for e in dists], color="black")
-            #    plt.show()
-            #    plt.clf()
+           
