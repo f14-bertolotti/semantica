@@ -2,13 +2,16 @@ from semeqv.problem.optimizers import optimizers
 from semeqv.problem.losses import loss
 from semeqv.problem.savers import savers
 from semeqv.problem.callbacks import callbacks
-from semeqv.problem.xor    import xor
+from semeqv.problem.schedulers import schedulers
+from semeqv.problem.bookcorpus import bookcorpus
+from semeqv.problem.xor import xor
 from semeqv import train, Trainer
-from functools import reduce
+from functools import partial, reduce
 import matplotlib.pyplot as plt
 import seaborn
 import random
 import pandas
+import pickle
 import click
 import numpy
 import torch
@@ -48,47 +51,78 @@ def cli(context, compile, epochs, seed, trainbar, validbar, testbar, epochbar):
 
 @cli.command()
 @click.pass_obj
-@click.option("--idxs1", "idxs1", type=(int,int), default=(0,1))
-@click.option("--idxs2", "idxs2", type=(int,int), default=(2,3))
+@click.option("--indexes" , "indexes" , type=(int,int), default=[(0,1),(2,3)], multiple=True)
+@click.option("--palette" , "palette" , type=str      , default="magma")
+@click.option("--title"   , "title"   , type=str      , default="")
+@click.option("--show"    , "show"    , type=bool     , default=False)
+@click.option("--etc"     , "etc"     , type=int      , default=1)
+@click.option("--path"    , "path"    , type=str      , default="")
+@click.option("--showconf", "showconf", type=bool     , default=True)
 @click.argument("paths", nargs=-1, type=click.Path())
-def view(_, paths, idxs1, idxs2):
-    dists1 = [numpy.load(path)[:,idxs1[0],idxs1[1]] for path in paths]
-    dists2 = [numpy.load(path)[:,idxs2[0],idxs2[1]] for path in paths]
-    maxlen = max(max(map(len,dists1)),max(map(len,dists2)))
-    trials = [[i]*maxlen for i in range(len(dists1))]
-    types  = [1]*maxlen*len(dists1) + [2]*maxlen*len(dists2)
-    steps  = [list(range(maxlen)) for i in range(len(dists1))]
-    dists1 = [list(dists) + [None] * (maxlen-len(dists)) for dists in dists1]
-    dists2 = [list(dists) + [None] * (maxlen-len(dists)) for dists in dists2]
-    dists1 = reduce(lambda x,y: x + y, dists1) 
-    dists2 = reduce(lambda x,y: x + y, dists2) 
-    trials = reduce(lambda x,y: x + y, trials)
-    steps  = reduce(lambda x,y: x + y,  steps)
-    print(len(steps), len(trials), len(dists1), len(dists2))
-    dists = pandas.DataFrame.from_dict({"steps":steps+steps, "trials":trials+trials, "value":dists1 + dists2, "types":types})
-    print(dists)
-    seaborn.lineplot(data=dists, x="steps", y="value", hue="types")
+def view(_, paths, etc, indexes, palette, title, show, path, showconf):
+    dists  = [[numpy.load(path)[::etc,i,j] for path in paths] for i,j in indexes]
+    maxlen = max([max(map(len,data)) for data in dists])
+    dists  = [[list(trial) + [None] * (maxlen-len(trial)) for trial in data] for data in dists]
+    steps  = [value*etc      for trials       in dists            for trial       in trials            for value,_ in enumerate(trial)]
+    trials = [value          for trials       in dists            for value,trial in enumerate(trials) for _       in trial]
+    types  = [indexes[value] for value,trials in enumerate(dists) for trial       in trials            for _       in trial]
+    values = [value          for trials       in dists            for trial       in trials            for value   in trial]
+
+    dists = pandas.DataFrame.from_dict({"step":steps, "distance":values, "embedding pairs":types, "trials":trials})
+    ax = seaborn.lineplot(data=dists, x="step", y="distance", hue="embedding pairs", palette=seaborn.color_palette(palette, len(indexes))) if showconf else \
+         seaborn.lineplot(data=dists, x="step", y="distance", hue="embedding pairs", palette=seaborn.color_palette(palette, len(indexes)), units="trials", estimator=None)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.set_title(title)
+    plt.tight_layout()
+    if show: plt.show()
+    if path: ax.figure.savefig(path)
+
+
+@cli.command()
+@click.option("--path"    , "paths"   , type=str      , default=[], multiple=True)
+@click.option("--index"   , "indexes" , type=(int,int), default=[], multiple=True)
+@click.option("--palette" , "palette" , type=str      , default="magma")
+@click.option("--title"   , "title"   , type=str      , default="")
+@click.option("--show"    , "show"    , type=bool     , default=False)
+@click.option("--etc"     , "etc"     , type=int      , default=1)
+@click.option("--showconf", "showconf", type=bool     , default=True)
+def view_embeddings(paths, indexes, etc, palette, title, show, showconf):
+    for path in paths:
+        with open(path, "rb") as file:
+            embeddings = []
+            while True: 
+                try: embeddings.append(pickle.load(file))
+                except EOFError: break
+            embeddings = torch.tensor(numpy.stack(embeddings))
+            print(len(embeddings))
+            cdists = [torch.cdist(embeddings[:,[i],:], embeddings[:,[j],:]).squeeze(2).squeeze(1) for i,j in indexes]
+            print(cdists)
+            for cdist in cdists:
+                print(cdist.shape)
+                plt.plot(range(len(cdist)),cdist)
+            plt.show()
+
+@cli.command()
+@click.pass_obj
+@click.option("--path", type=click.Path())
+@click.option("--special","specials",type=(int,int,str),multiple=True)
+def viewall(_, specials, path):
+    cdists = numpy.load(path)
+    for i,j in [(i,j) for i in range(cdists.shape[1]) for j in range(cdists.shape[2]) if i < j]:
+        plt.plot(numpy.arange(cdists.shape[0]),cdists[:,i,j], color="black")
+        for si,sj,c in specials:
+            if i==si and j == sj: plt.plot(numpy.arange(cdists.shape[0]),cdists[:,i,j], color=c)
     plt.show()
-
-        #####
-        #dists.append(torch.cdist(trainer.model.embedding.weight,trainer.model.embedding.weight).detach().cpu().numpy())
-
-        #if epoch == 500 or epoch % 1000 == 0:
-        #    for i,j in [(i,j) for i in range(trainer.model.embedding.weight.size(0)) for j in range(trainer.model.embedding.weight.size(0)) if i < j]:
-        #        if   0 <= i < 2 and 0 <= j < 2: plt.plot([e[i,j] for e in dists], color="blue")
-        #        elif 2 <= i < 4 and 2 <= j < 4: plt.plot([e[i,j] for e in dists], color="purple")
-        #        elif i == 6 or j == 6: plt.plot([e[i,j] for e in dists], color="green")
-        #        else: plt.plot([e[i,j] for e in dists], color="black")
-        #    plt.show()
-        #    plt.clf()
-
 
 
 cli.add_command(savers)
 cli.add_command(loss)
 cli.add_command(callbacks)
 cli.add_command(xor)
+cli.add_command(bookcorpus)
 cli.add_command(optimizers)
+cli.add_command(schedulers)
 cli.add_command(train)
 cli.add_command(view)
 

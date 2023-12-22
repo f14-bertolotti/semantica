@@ -17,8 +17,11 @@ class DefaultModel(torch.nn.Module):
             activation       = "relu",
             device           = "cpu"):
         super().__init__()
+        self.weight_tying = weight_tying
 
         self.embedding = torch.nn.Embedding(src_vocab_size, embedding_size, device=device)
+        self.lnorm     = torch.nn.LayerNorm(embedding_size, device=device)
+        self.dropout   = torch.nn.Dropout(dropout)
 
         if semeqv_init[0] and semeqv_init[0]:
             with torch.no_grad():
@@ -37,10 +40,13 @@ class DefaultModel(torch.nn.Module):
             ),
             num_layers = layers
         )
-        self.ff = self.embedding.weight.T if weight_tying else torch.nn.Linear(embedding_size, tgt_vocab_size, device=device, bias=False).weight.T
+        self.ff = self.embedding.weight.T if self.weight_tying else torch.nn.Linear(embedding_size, tgt_vocab_size, device=device, bias=False).weight.T
+
+    def decouple_wt(self):
+        self.ff = torch.nn.Parameter(data=self.ff.detach().clone(), requires_grad=True)
 
     def forward(self, src, tgt):
-        embeddings = self.embedding(src)
+        embeddings = self.dropout(self.lnorm(self.embedding(src)))
         encoded    = self.encoder(embeddings)
         logits     = encoded @ self.ff
         logits     = logits.view(logits.size(0)*logits.size(1),logits.size(2))

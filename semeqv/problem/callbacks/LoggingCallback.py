@@ -26,7 +26,7 @@ class LoggingCallback(DefaultCallback):
 
     def end_step(self, loss, data, pred):
         super().end_step(loss, data, pred)
-        self.step_logger.info(f"\"epoch\":{self.epoch}, \"step\":{self.step}, \"accuracy\":{self.cur_acc}, \"loss\":{loss}")
+        self.step_logger.info(f"\"epoch\":{self.epoch}, \"step\":{self.step}, \"accuracy\":{self.cur_acc/self.cur_spl}, \"loss\":{loss}")
 
     def end_epoch(self, *args, **kwargs):
         acc, lss = self.get_step_results()

@@ -1,11 +1,11 @@
+transformers
 matplotlib
+datasets
 termcolor
+seaborn
 pandas
 click
 numpy
 torch
 tqdm
 rich
-
-
-

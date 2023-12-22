@@ -18,7 +18,7 @@ class CdistsCallback(LoggingCallback):
         if self.path and self.epoch % self.epochs_to_checkpoint == 0:
             numpy.save(self.path, numpy.stack(self.cdists))
 
-    def edn(self):
+    def end(self):
         super().end()
         if self.path:
             numpy.save(self.path, numpy.stack(self.cdists))

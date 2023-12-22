@@ -7,14 +7,16 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self): pass
 
     @abstractmethod
-    def __len__(self): pass
+    def __len__(self) -> int: pass
 
     @abstractmethod
-    def __getitem__(self, idx): pass
+    def __getitem__(self, idx) -> dict: pass
 
     @abstractmethod
-    def todevice(self): pass
+    def todevice(self, *args) -> dict: pass
 
     @abstractmethod
-    def collate_fn(self, data): pass
+    def collate_fn(self, data) -> dict: pass
 
+    def save(self): pass
+    def restore(self, state): pass

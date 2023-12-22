@@ -28,6 +28,7 @@ class DefaultDataset(BaseDataset):
         self.zero_semeqv_distribution = zero_semeqv_distribution
         self.one_semeqv_distribution  =  one_semeqv_distribution
         self.device = device
+        self.split = split
 
         # build the dataset with all possible binary combinations
         samples = [list(map(int,bin(x)[2:])) for x in range(2**sample_size - 1)]
@@ -90,6 +91,11 @@ class DefaultDataset(BaseDataset):
 @click.group()
 def default_dataset(): pass
 
+def get_worker_init_fn(seed):
+    def worker_init_fn(worker_id):
+        worker_info = torch.utils.data.get_worker_info()
+        worker_info.dataset.generator = random.Random(worker_info.seed)
+    return worker_init_fn
 
 @default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--size"        , "sample_size"              , type=int               , default=10)
@@ -117,7 +123,8 @@ def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
             num_workers = num_workers,
             shuffle     = shuffle,
             drop_last   = drop_last,
-            collate_fn  = dataset.collate_fn
+            collate_fn  = dataset.collate_fn,
+            worker_init_fn = get_worker_init_fn(seed)
         )
     )
 
@@ -147,7 +154,8 @@ def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
             num_workers = num_workers,
             shuffle     = shuffle,
             drop_last   = drop_last,
-            collate_fn  = dataset.collate_fn
+            collate_fn  = dataset.collate_fn,
+            worker_init_fn = get_worker_init_fn(seed)
         )
     )
 
@@ -173,10 +181,11 @@ def testsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distrib
                 device                   = device,
                 split                    = "validation"
             ),
-                batch_size  = batch_size,
-                num_workers = num_workers,
-                shuffle     = shuffle,
-                drop_last   = drop_last,
-                collate_fn  = dataset.collate_fn
-            )
+            batch_size  = batch_size,
+            num_workers = num_workers,
+            shuffle     = shuffle,
+            drop_last   = drop_last,
+            collate_fn  = dataset.collate_fn,
+            worker_init_fn = get_worker_init_fn(seed)
+        )
     )

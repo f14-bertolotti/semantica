@@ -8,5 +8,5 @@ def loss(): pass
 @click.pass_obj
 def cross_entropy(trainer):
     def wrapped(logits, tgt, **kwargs): 
-        return torch.nn.functional.cross_entropy(logits, tgt)
+        return torch.nn.functional.cross_entropy(logits, tgt, reduction='mean')
     trainer.set_loss_fn(wrapped)

@@ -20,10 +20,11 @@ class DefaultCallback:
     def end_step(self, loss, data, pred):
         """ called at the end of each model prediction """
         prd, tgt = pred["prd"], data["tgt"]
-        self.cur_acc = (tgt[tgt!=-100] == prd[tgt!=-100]).float().sum().item()
+        self.cur_acc = (tgt[tgt!=-100] == prd[tgt!=-100]).float().sum().item() 
+        self.cur_spl = (tgt!=-100).sum().item()
         self.acc_sum = self.acc_sum + self.cur_acc
-        self.lss_sum = self.lss_sum + loss
-        self.samples = self.samples + (tgt!=-100).sum().item()
+        self.lss_sum = self.lss_sum + loss * self.cur_spl # reduction method assumed to be mean
+        self.samples = self.samples + self.cur_spl
 
     def end_epoch(self):
         """ called at the end of each model epoch """

@@ -1,5 +1,10 @@
-import matplotlib.pyplot as plt
-import termcolor, numpy, tqdm, click, torch
+import termcolor, click, torch, tqdm
+
+class FakeBar:
+    def __init__(self): pass
+    def __call__(self, iterator, **kwargs ):
+        return iterator
+    def set_description(*args, **kwargs): pass
 
 class Trainer:
 
@@ -8,14 +13,15 @@ class Trainer:
     def set_validsplit(self, value): self.validsplit = value; return self
     def  set_testsplit(self, value): self.testsplit  = value; return self
 
-    def set_epochbar(self, value): self.epochbar = tqdm.tqdm if value else lambda x:x; return self
-    def set_trainbar(self, value): self.trainbar = tqdm.tqdm if value else lambda x:x; return self
-    def set_validbar(self, value): self.validbar = tqdm.tqdm if value else lambda x:x; return self
-    def  set_testbar(self, value): self.testbar  = tqdm.tqdm if value else lambda x:x; return self
+    def set_epochbar(self, value): self.epochbar = tqdm.tqdm if value else FakeBar(); return self
+    def set_trainbar(self, value): self.trainbar = tqdm.tqdm if value else FakeBar(); return self
+    def set_validbar(self, value): self.validbar = tqdm.tqdm if value else FakeBar(); return self
+    def  set_testbar(self, value): self.testbar  = tqdm.tqdm if value else FakeBar(); return self
  
     def         set_model(self, value): self.model         = value; return self
     def       set_loss_fn(self, value): self.lossfn        = value; return self
     def     set_optimizer(self, value): self.optimizer     = value; return self
+    def     set_scheduler(self, value): self.scheduler     = value; return self
     def        set_epochs(self, value): self.epochs        = value; return self
     def set_traincallback(self, value): self.traincallback = value; return self
     def set_validcallback(self, value): self.validcallback = value; return self
@@ -33,7 +39,7 @@ class Trainer:
         trainer.validcallback.start()
 
         # restore from a checkpoint if necessary ###
-        startepoch = trainer.saver.restore(
+        epoch = trainer.saver.restore(
             trainer.model, 
             trainer.optimizer, 
             trainer.trainsplit.dataset, 
@@ -48,7 +54,7 @@ class Trainer:
             trainer.model = torch.compile(trainer.model)
 
         # main training loop ###
-        for epoch in trainer.epochbar(range(startepoch, trainer.epochs)):
+        for epoch in trainer.epochbar(range(epoch, trainer.epochs)):
             
             # trainsplit ###
             trainer.model.train()
@@ -85,6 +91,9 @@ class Trainer:
             result = trainer.validcallback.get_epoch_results()
             trainer.validcallback.end_epoch()
 
+            # do a scheduler step
+            trainer.scheduler.step()
+
             # one epoch done, saving if necessary ###
             trainer.saver.save(
                 epoch, 
@@ -98,4 +107,15 @@ class Trainer:
         # all epochs done, finishing ... ###
         trainer.traincallback.end()
         trainer.validcallback.end()
+        
+        # last saving
+        trainer.saver.savelast = True
+        trainer.saver.save(
+            epoch, 
+            result, 
+            trainer.optimizer, 
+            uncompiled, 
+            trainer.trainsplit.dataset, 
+            trainer.validsplit.dataset
+        )
            

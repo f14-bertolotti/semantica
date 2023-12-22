@@ -6,7 +6,7 @@ class DefaultSaver:
 
     name2best = {"max" : (lambda x,y: x>y, (0,)), "min" : (lambda x,y: x<y, (float("inf"),))}
 
-    def __init__(self, restorepath="", map_location="cpu", dirpath="", epochs_to_checkpoint=0, bestfn="max", savelast=False, savebest=False): 
+    def __init__(self, restorepath="", map_location="cpu", dirpath="", epochs_to_checkpoint=0, bestfn="max", savelast=False, savebest=False, verbose=False): 
         self.epochs_to_checkpoint = epochs_to_checkpoint
         self.map_location         = map_location
         self.restorepath          = restorepath
@@ -16,6 +16,7 @@ class DefaultSaver:
         self.savelast             = savelast
         self.savebest             = savebest
         self.bestfn,self.bestvl   = DefaultSaver.name2best[bestfn]
+        self.verbose              = verbose
     
     def save(self, epoch, value, optimizer, model, trainset, validset):
         savedict = {
@@ -34,7 +35,7 @@ class DefaultSaver:
             torch.save(savedict, os.path.join(self.dirpath, f"model{epoch}.pt"))
 
         if self.savebest and self.bestfn(value, self.bestvl): 
-            print("saved new best model")
+            if self.verbose: print("saved new best model")
             torch.save(savedict, self.bestpath)
             self.bestvl = value
 
@@ -65,8 +66,9 @@ def savers(): pass
 @click.option("--map_location", "map_location", type=str , default="cpu")
 @click.option("--etc"         ,          "etc", type=int , default=0)
 @click.option("--mode"        ,         "mode", type=str , default="max")
+@click.option("--verbose"     ,      "verbose", type=bool, default=False)
 @click.pass_obj
-def default_saver(trainer, dirpath, restorepath, savelast, savebest, map_location, etc, mode):
+def default_saver(trainer, dirpath, restorepath, savelast, savebest, map_location, etc, mode, verbose):
     trainer.set_saver(
         DefaultSaver(
             dirpath              = dirpath,
@@ -76,6 +78,7 @@ def default_saver(trainer, dirpath, restorepath, savelast, savebest, map_locatio
             bestfn               = mode,
             savelast             = savelast,
             savebest             = savebest,
+            verbose              = verbose,
         )
     )
 
