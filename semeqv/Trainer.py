@@ -32,7 +32,50 @@ class Trainer:
     @staticmethod
     @click.command()
     @click.pass_obj
-    def train(trainer):
+    def test(trainer):
+        # starting testing, initializing ###
+        trainer.testcallback.start()
+
+        # restore from a checkpoint if necessary ###
+        epoch = trainer.saver.restore(
+            trainer.model, 
+            trainer.optimizer, 
+            trainer.trainsplit.dataset, 
+            trainer.validsplit.dataset
+        )
+
+        # compile model if trainer.model is set to true ###
+        # always keep the "uncompiled" version for checkpointing purposes
+        uncompiled = trainer.model
+        if trainer.compile:
+            torch.set_float32_matmul_precision('high')
+            trainer.model = torch.compile(trainer.model)
+
+        # test split ###
+        trainer.model.eval()
+        trainer.testcallback.start_epoch(epoch)
+        for step,batch in (bar:=trainer.testbar(enumerate(trainer.testsplit,1), total=len(trainer.testsplit), colour="green")):
+            trainer.testcallback.start_step(step)
+            data = trainer.trainsplit.dataset.todevice(**batch)
+            pred = trainer.model(**data)
+            loss = trainer.lossfn(**(data | pred))
+            trainer.testcallback.end_step(
+                loss = loss.item(),
+                data = data,
+                pred = pred)
+            bar.set_description(termcolor.colored(f"e:{epoch} {trainer.testcallback.get_step_description()}", "green"))
+        result = trainer.testcallback.get_epoch_results()
+        trainer.testcallback.end_epoch()
+
+        # all epochs done, finishing ... ###
+        trainer.testcallback.end()
+ 
+
+    @staticmethod
+    @click.command()
+    @click.option("--amp", "amp" , type=bool, default=True)
+    @click.pass_obj
+    def train(trainer, amp):
 
         # starting training, initializing ###
         trainer.traincallback.start()
@@ -53,6 +96,8 @@ class Trainer:
             torch.set_float32_matmul_precision('high')
             trainer.model = torch.compile(trainer.model)
 
+        scaler = torch.cuda.amp.GradScaler(enabled = amp)
+
         # main training loop ###
         for epoch in trainer.epochbar(range(epoch, trainer.epochs)):
             
@@ -60,13 +105,15 @@ class Trainer:
             trainer.model.train()
             trainer.traincallback.start_epoch(epoch)
             for step,batch in (bar:=trainer.trainbar(enumerate(trainer.trainsplit,1), total=len(trainer.trainsplit), colour="white")):
-                trainer.traincallback.start_step(step)
-                trainer.optimizer.zero_grad()
-                data = trainer.trainsplit.dataset.todevice(**batch)
-                pred = trainer.model(**data)
-                loss = trainer.lossfn(**(data | pred))
-                loss.backward()
-                trainer.optimizer.step()
+                with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
+                    trainer.traincallback.start_step(step)
+                    trainer.optimizer.zero_grad()
+                    data = trainer.trainsplit.dataset.todevice(**batch)
+                    pred = trainer.model(**data)
+                    loss = trainer.lossfn(**(data | pred))
+                    scaler.scale(loss).backward()
+                    scaler.step(trainer.optimizer)
+                    scaler.update()
                 trainer.traincallback.end_step(
                     loss = loss.item(),
                     data = data,

@@ -43,8 +43,6 @@ class DefaultModelWT(torch.nn.Module):
         elif isinstance(module, torch.nn.LayerNorm):
             module.reset_parameters()
 
-
-
     def forward(self, src, msk, tgt):
         logits = self.model(input_ids=src, attention_mask=msk).logits
         logits = logits.view(src.size(0)*src.size(1),-1)

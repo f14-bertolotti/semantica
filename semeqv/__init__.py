@@ -1,4 +1,6 @@
 
 from semeqv.Trainer import Trainer
-train = Trainer.train
+from semeqv.Tokenizer import train_tokenizer
 
+train = Trainer.train
+test  = Trainer.test

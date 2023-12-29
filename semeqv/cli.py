@@ -5,7 +5,7 @@ from semeqv.problem.callbacks import callbacks
 from semeqv.problem.schedulers import schedulers
 from semeqv.problem.bookcorpus import bookcorpus
 from semeqv.problem.xor import xor
-from semeqv import train, Trainer
+from semeqv import train_tokenizer, test, train, Trainer
 from functools import partial, reduce
 import matplotlib.pyplot as plt
 import seaborn
@@ -29,9 +29,9 @@ def seed_everything(seed: int):
 
 trainer = Trainer()
 @click.group(invoke_without_command=True, context_settings={'show_default': True})
+@click.option("--seed"    , "seed"     , type=int , default=42)
 @click.option("--compile" , "compile"  , type=bool, default=True)
 @click.option("--epochs"  , "epochs"   , type=int , default=1)
-@click.option("--seed"    , "seed"     , type=int , default=42)
 @click.option("--trainbar", "trainbar" , type=bool, default=True)
 @click.option("--validbar", "validbar" , type=bool, default=True)
 @click.option("--testbar" , "testbar"  , type=bool, default=True)
@@ -39,6 +39,7 @@ trainer = Trainer()
 @click.pass_context
 def cli(context, compile, epochs, seed, trainbar, validbar, testbar, epochbar):
     if not context.obj: 
+        seed_everything(seed)
         context.obj = trainer \
                 .set_epochs(epochs) \
                 .set_compile(compile) \
@@ -46,7 +47,6 @@ def cli(context, compile, epochs, seed, trainbar, validbar, testbar, epochbar):
                 .set_trainbar(trainbar) \
                 .set_validbar(validbar) \
                 .set_testbar(testbar)
-        seed_everything(seed)
 
 
 @cli.command()
@@ -124,6 +124,8 @@ cli.add_command(bookcorpus)
 cli.add_command(optimizers)
 cli.add_command(schedulers)
 cli.add_command(train)
+cli.add_command(test)
+cli.add_command(train_tokenizer)
 cli.add_command(view)
 
 # put the cli group command as last command in the command tree
