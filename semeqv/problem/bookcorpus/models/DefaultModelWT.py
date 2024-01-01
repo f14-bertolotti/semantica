@@ -17,7 +17,7 @@ class DefaultModelWT(torch.nn.Module):
             device           = "cpu"):
         super().__init__()
 
-        self.model = transformers.RobertaForMaskedLM(
+        self.model = transformers.RobertaModel(
             transformers.RobertaConfig(
                 vocab_size                   = src_vocab_size,
                 hidden_size                  = embedding_size,
@@ -32,7 +32,6 @@ class DefaultModelWT(torch.nn.Module):
             )
         ).to(device)
         self.embedding = self.model.get_input_embeddings()
-        self.model.get_output_embeddings().weight = self.embedding.weight
         self.apply(self.init_weights)
 
     def init_weights(self, module): 
@@ -44,7 +43,8 @@ class DefaultModelWT(torch.nn.Module):
             module.reset_parameters()
 
     def forward(self, src, msk, tgt):
-        logits = self.model(input_ids=src, attention_mask=msk).logits
+        output = self.model(input_ids=src, attention_mask=msk).last_hidden_state
+        logits = output @ self.embedding.weight.T
         logits = logits.view(src.size(0)*src.size(1),-1)
         return {"logits": logits, "prd" : logits.argmax(-1)}
 

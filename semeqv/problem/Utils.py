@@ -15,3 +15,17 @@ def get_worker_init_fn(seed):
         worker_info = torch.utils.data.get_worker_info()
         worker_info.dataset.generator = random.Random(seed + worker_id + worker_info.seed)
     return worker_init_fn
+
+def grouped(iterable, size=1):
+    x = iter(iterable)
+    while True:
+        group = []
+        try: 
+            for _ in range(size): group.append(next(x))
+            yield group
+        except StopIteration:
+            yield group
+            break
+
+            
+

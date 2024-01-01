@@ -70,9 +70,9 @@ class DefaultDataset(BaseDataset):
 
     def todevice(self, src, msk, tgt):
         return {
-            "src" : src.to(self.device),
-            "msk" : msk.to(self.device),
-            "tgt" : tgt.to(self.device)
+            "src" : src.to(self.device, non_blocking=True),
+            "msk" : msk.to(self.device, non_blocking=True),
+            "tgt" : tgt.to(self.device, non_blocking=True)
         }
 
     def collate_fn(self, data):

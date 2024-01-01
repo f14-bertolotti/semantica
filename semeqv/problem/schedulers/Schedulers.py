@@ -1,3 +1,4 @@
+import transformers 
 import torch
 import click
     
@@ -21,11 +22,11 @@ def noscheduler(trainer):
     trainer.set_scheduler(FakeSched())
 
 
-#torch_lr_scheduler = ExponentialLR(optimizer=default_optimizer, gamma=0.98)
-#
-#default_trainer = get_default_trainer()
-#
-#scheduler = create_lr_scheduler_with_warmup(torch_lr_scheduler,
-#                                            warmup_start_value=0.0,
-#                                            warmup_end_value=0.1,
-#                                            warmup_duration=3)
+@schedulers.group(invoke_without_command=True, context_settings={'show_default': True})
+@click.option("--warmup"    , "warmup"    , type=int, default=30000)
+@click.option("--last_epoch", "last_epoch", type=int)
+@click.pass_obj
+def constant(trainer, warmup, last_epoch):
+    trainer.set_scheduler(
+        transformers.get_constant_schedule_with_warmup(trainer.optimizer, num_warmup_steps=warmup, last_epoch=last_epoch)
+    )

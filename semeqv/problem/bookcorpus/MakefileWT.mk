@@ -70,7 +70,7 @@ data/bookcorpus/seed%/modellast.pt: data/bookcorpus/tokenizer.json
 		--device ${DEVICE} \
 		--num_workers 0 \
 		--split "test" \
-	cli bookcorpus default-model \
+	cli bookcorpus default-model-wt \
 		--size ${SIZE} \
 		--heads ${HEADS} \
 		--layers ${LAYERS} \
@@ -81,7 +81,7 @@ data/bookcorpus/seed%/modellast.pt: data/bookcorpus/tokenizer.json
 		--src_vocab_size $(shell expr ${VOCABSIZE} + 110) \
 		--device ${DEVICE} \
 	cli optimizers adam --learning_rate ${LR} \
-	cli schedulers constant --warmup 3000 --last_epoch -1 \
+	cli schedulers noscheduler \
 	cli savers default-saver \
 		--dirpath $(dir $@) \
 		--restorepath ${RESTOREPATH} \

@@ -1,4 +1,5 @@
 import termcolor, click, torch, tqdm
+from semeqv.problem import grouped
 
 class FakeBar:
     def __init__(self): pass
@@ -74,8 +75,9 @@ class Trainer:
     @staticmethod
     @click.command()
     @click.option("--amp", "amp" , type=bool, default=True)
+    @click.option("--mini_steps", "mini_steps" , type=int, default=1)
     @click.pass_obj
-    def train(trainer, amp):
+    def train(trainer, amp, mini_steps):
 
         # starting training, initializing ###
         trainer.traincallback.start()
@@ -104,21 +106,24 @@ class Trainer:
             # trainsplit ###
             trainer.model.train()
             trainer.traincallback.start_epoch(epoch)
-            for step,batch in (bar:=trainer.trainbar(enumerate(trainer.trainsplit,1), total=len(trainer.trainsplit), colour="white")):
+            mini_step = 0
+            for step,group in (bar:=trainer.trainbar(enumerate(grouped(trainer.trainsplit,mini_steps),1), total=len(trainer.trainsplit)//mini_steps+1, colour="white")):
                 with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
-                    trainer.traincallback.start_step(step)
-                    trainer.optimizer.zero_grad()
-                    data = trainer.trainsplit.dataset.todevice(**batch)
-                    pred = trainer.model(**data)
-                    loss = trainer.lossfn(**(data | pred))
-                    scaler.scale(loss).backward()
+                    for batch in group:
+                        trainer.traincallback.start_step(step)
+                        trainer.optimizer.zero_grad()
+                        data = trainer.trainsplit.dataset.todevice(**batch)
+                        pred = trainer.model(**data)
+                        loss = trainer.lossfn(**(data | pred))
+                        scaler.scale(loss/len(batch)).backward()
+                        trainer.traincallback.end_step(
+                            loss = loss.item(),
+                            data = data,
+                            pred = pred)
+                        bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.traincallback.get_step_description()}","white"))
                     scaler.step(trainer.optimizer)
                     scaler.update()
-                trainer.traincallback.end_step(
-                    loss = loss.item(),
-                    data = data,
-                    pred = pred)
-                bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.traincallback.get_step_description()}","white"))
+                    trainer.scheduler.step()
             result = trainer.traincallback.get_epoch_results()
             trainer.traincallback.end_epoch()
 
@@ -126,10 +131,11 @@ class Trainer:
             trainer.model.eval()
             trainer.validcallback.start_epoch(epoch)
             for step,batch in (bar:=trainer.validbar(enumerate(trainer.validsplit,1), total=len(trainer.validsplit), colour="blue")):
-                trainer.validcallback.start_step(step)
-                data = trainer.trainsplit.dataset.todevice(**batch)
-                pred = trainer.model(**data)
-                loss = trainer.lossfn(**(data | pred))
+                with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
+                    trainer.validcallback.start_step(step)
+                    data = trainer.trainsplit.dataset.todevice(**batch)
+                    pred = trainer.model(**data)
+                    loss = trainer.lossfn(**(data | pred))
                 trainer.validcallback.end_step(
                     loss = loss.item(),
                     data = data,
@@ -137,9 +143,6 @@ class Trainer:
                 bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.validcallback.get_step_description()}", "blue"))
             result = trainer.validcallback.get_epoch_results()
             trainer.validcallback.end_epoch()
-
-            # do a scheduler step
-            trainer.scheduler.step()
 
             # one epoch done, saving if necessary ###
             trainer.saver.save(

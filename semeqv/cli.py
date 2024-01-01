@@ -81,7 +81,7 @@ def view(_, paths, etc, indexes, palette, title, show, path, showconf):
 
 @cli.command()
 @click.option("--path"    , "paths"   , type=str      , default=[], multiple=True)
-@click.option("--index"   , "indexes" , type=(int,int), default=[], multiple=True)
+@click.option("--index"   , "indexes" , type=(int,int,str), default=[], multiple=True)
 @click.option("--palette" , "palette" , type=str      , default="magma")
 @click.option("--title"   , "title"   , type=str      , default="")
 @click.option("--show"    , "show"    , type=bool     , default=False)
@@ -89,18 +89,15 @@ def view(_, paths, etc, indexes, palette, title, show, path, showconf):
 @click.option("--showconf", "showconf", type=bool     , default=True)
 def view_embeddings(paths, indexes, etc, palette, title, show, showconf):
     for path in paths:
+        cdists = []
         with open(path, "rb") as file:
-            embeddings = []
             while True: 
-                try: embeddings.append(pickle.load(file))
+                try: 
+                    embeddings = torch.tensor(pickle.load(file))
+                    cdists.append([torch.cdist(embeddings[[i]], embeddings[[j]]).squeeze() for i,j,_ in indexes])
                 except EOFError: break
-            embeddings = torch.tensor(numpy.stack(embeddings))
-            print(len(embeddings))
-            cdists = [torch.cdist(embeddings[:,[i],:], embeddings[:,[j],:]).squeeze(2).squeeze(1) for i,j in indexes]
-            print(cdists)
-            for cdist in cdists:
-                print(cdist.shape)
-                plt.plot(range(len(cdist)),cdist)
+            for i,(_,_,c) in enumerate(indexes):
+                plt.plot(range(len(cdists)),[d[i] for d in cdists],color=c)
             plt.show()
 
 @cli.command()
