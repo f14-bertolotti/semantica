@@ -3,9 +3,16 @@ from semeqv.problem import grouped
 
 class FakeBar:
     def __init__(self): pass
-    def __call__(self, iterator, **kwargs ):
-        return iterator
+    def __call__(self, iterator, **kwargs ): 
+        self.iterator = iterator
+        return self
+    def __iter__(self): return self.iterator 
     def set_description(*args, **kwargs): pass
+
+class FakeScaler:
+    def scale(self, x): return x
+    def step(self, x): x.step()
+    def update(self): pass
 
 class Trainer:
 
@@ -98,15 +105,14 @@ class Trainer:
             torch.set_float32_matmul_precision('high')
             trainer.model = torch.compile(trainer.model)
 
-        scaler = torch.cuda.amp.GradScaler(enabled = amp)
+        scaler = torch.cuda.amp.GradScaler() if amp else FakeScaler()
 
         # main training loop ###
-        for epoch in trainer.epochbar(range(epoch, trainer.epochs)):
+        for epoch in trainer.epochbar(iter(lst:=range(epoch, trainer.epochs)), total=len(lst)):
             
             # trainsplit ###
             trainer.model.train()
             trainer.traincallback.start_epoch(epoch)
-            mini_step = 0
             for step,group in (bar:=trainer.trainbar(enumerate(grouped(trainer.trainsplit,mini_steps),1), total=len(trainer.trainsplit)//mini_steps+1, colour="white")):
                 with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
                     for batch in group:
@@ -115,7 +121,7 @@ class Trainer:
                         data = trainer.trainsplit.dataset.todevice(**batch)
                         pred = trainer.model(**data)
                         loss = trainer.lossfn(**(data | pred))
-                        scaler.scale(loss/len(batch)).backward()
+                        scaler.scale(loss/len(group)).backward()
                         trainer.traincallback.end_step(
                             loss = loss.item(),
                             data = data,

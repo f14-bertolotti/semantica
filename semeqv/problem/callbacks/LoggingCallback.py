@@ -1,4 +1,5 @@
 from semeqv.problem.callbacks import callbacks, DefaultCallback
+from semeqv.problem import split2callback
 import logging, click
 
 class LoggingCallback(DefaultCallback):
@@ -34,27 +35,16 @@ class LoggingCallback(DefaultCallback):
         super().end_epoch(*args, **kwargs)
 
 
-@click.group()
-def log(): pass
-callbacks.add_command(log)
-
-@log.group(invoke_without_command=True, context_settings={'show_default': True})
+@callbacks.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option( "--step_log_path",  "step_log_path", type=str, default="")
 @click.option("--epoch_log_path", "epoch_log_path", type=str, default="")
+@click.option(         "--split",          "split", type=str, default="train")
 @click.pass_obj
-def traincallback(trainer, step_log_path, epoch_log_path):
-    trainer.set_traincallback(LoggingCallback(trainer, step_log_path=step_log_path, epoch_log_path=epoch_log_path))
-
-@log.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option( "--step_log_path",  "step_log_path", type=str, default="")
-@click.option("--epoch_log_path", "epoch_log_path", type=str, default="")
-@click.pass_obj
-def validcallback(trainer, step_log_path, epoch_log_path):
-    trainer.set_validcallback(LoggingCallback(trainer, step_log_path=step_log_path, epoch_log_path=epoch_log_path))
-
-@log.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option( "--step_log_path",  "step_log_path", type=str, default="")
-@click.option("--epoch_log_path", "epoch_log_path", type=str, default="")
-@click.pass_obj
-def testcallback(trainer, step_log_path, epoch_log_path):
-    trainer.set_testcallback(LoggingCallback(trainer, step_log_path=step_log_path, epoch_log_path=epoch_log_path))
+def log(trainer, step_log_path, epoch_log_path, split):
+    split2callback[split](trainer)(
+        LoggingCallback(
+            trainer, 
+            step_log_path  = step_log_path,
+            epoch_log_path = epoch_log_path
+        )
+    )

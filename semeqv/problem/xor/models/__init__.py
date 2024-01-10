@@ -1,4 +1,5 @@
 
 
-from semeqv.problem.xor.models.DefaultModel   import DefaultModel
-from semeqv.problem.xor.models.DefaultModel   import default_model
+from semeqv.problem.xor.models.Model import model
+from semeqv.problem.xor.models.Default import Default
+from semeqv.problem.xor.models.Default import default

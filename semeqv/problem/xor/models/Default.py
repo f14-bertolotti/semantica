@@ -1,7 +1,7 @@
-import torch
-import click
+from semeqv.problem.xor.models import model
+import click, torch
 
-class DefaultModel(torch.nn.Module):
+class Default(torch.nn.Module):
 
     def __init__(
             self,
@@ -13,15 +13,11 @@ class DefaultModel(torch.nn.Module):
             heads            = 2,
             dropout          = .1,
             semeqv_init      = (0,0),
-            weight_tying     = False,
             activation       = "relu",
             device           = "cpu"):
         super().__init__()
-        self.weight_tying = weight_tying
-
-        self.embedding = torch.nn.Embedding(src_vocab_size, embedding_size, device=device)
-        self.lnorm     = torch.nn.LayerNorm(embedding_size, device=device)
-        self.dropout   = torch.nn.Dropout(dropout)
+        self.input_embedding  = torch.nn.Embedding(src_vocab_size, embedding_size, device=device)
+        self.output_embedding = torch.nn.Embedding(tgt_vocab_size, embedding_size, device=device)
 
         if semeqv_init[0] and semeqv_init[0]:
             with torch.no_grad():
@@ -40,15 +36,11 @@ class DefaultModel(torch.nn.Module):
             ),
             num_layers = layers
         )
-        self.ff = self.embedding.weight.T if self.weight_tying else torch.nn.Linear(embedding_size, tgt_vocab_size, device=device, bias=False).weight.T
-
-    def decouple_wt(self):
-        self.ff = torch.nn.Parameter(data=self.ff.detach().clone(), requires_grad=True)
 
     def forward(self, src, tgt):
-        embeddings = self.dropout(self.lnorm(self.embedding(src)))
+        embeddings = self.input_embedding(src)
         encoded    = self.encoder(embeddings)
-        logits     = encoded @ self.ff
+        logits     = encoded @ self.output_embedding.weight.T
         logits     = logits.view(logits.size(0)*logits.size(1),logits.size(2))
         return {"logits": logits, "prd" : logits.argmax(-1)}
 
@@ -58,7 +50,7 @@ class DefaultModel(torch.nn.Module):
     def restore(self, state_dict):
         self.load_state_dict(state_dict)
 
-@click.group(invoke_without_command=True, context_settings={'show_default': True})
+@model.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--layers"           , "layers"           , type=int       , default=3)
 @click.option("--src_vocab_size"   , "src_vocab_size"   , type=int       , default=2)
 @click.option("--tgt_vocab_size"   , "tgt_vocab_size"   , type=int       , default=2)
@@ -67,13 +59,12 @@ class DefaultModel(torch.nn.Module):
 @click.option("--heads"            , "heads"            , type=int       , default=2)
 @click.option("--semeqvinit"       , "semeqvinit"       , type=(int,int) , default=(0,0))
 @click.option("--dropout"          , "dropout"          , type=float     , default=.1)
-@click.option("--weight_tying"     , "weight_tying"     , type=bool      , default=False)
 @click.option("--activation"       , "activation"       , type=str       , default="relu")
 @click.option("--device"           , "device"           , type=str       , default="cpu")
 @click.pass_obj
-def default_model(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, weight_tying, activation, device):
+def default(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, activation, device):
     trainer.set_model(
-        DefaultModel(
+        Default(
             layers           = layers,
             src_vocab_size   = src_vocab_size,
             tgt_vocab_size   = tgt_vocab_size,
@@ -82,7 +73,6 @@ def default_model(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_siz
             heads            = heads,
             dropout          = dropout,
             semeqv_init      = semeqvinit,
-            weight_tying     = weight_tying,
             activation       = activation,
             device           = device
         )

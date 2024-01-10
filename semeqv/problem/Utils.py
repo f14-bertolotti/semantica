@@ -26,6 +26,13 @@ def grouped(iterable, size=1):
         except StopIteration:
             yield group
             break
-
-            
-
+split2callback = {
+    "train"      : lambda trainer : trainer.set_traincallback,
+    "validation" : lambda trainer : trainer.set_validcallback,
+    "test"       : lambda trainer : trainer.set_testcallback
+}
+split2dataset = {
+    "train"      : lambda trainer : trainer.set_trainsplit,
+    "validation" : lambda trainer : trainer.set_validsplit,
+    "test"       : lambda trainer : trainer.set_testsplit
+}

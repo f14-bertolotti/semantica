@@ -1,10 +1,13 @@
 from semeqv.problem import Dataset as BaseDataset
 from semeqv.problem import DistributionOption
+from semeqv.problem.xor.datasets import dataset
+from semeqv.problem import get_worker_init_fn
+from semeqv.problem import split2dataset
 import random
 import torch
 import click
 
-class DefaultDataset(BaseDataset):
+class Default(BaseDataset):
     """ 
         Dataset class for xor problem with semantically eqv. symbols.
         Given a binary string the prediction should be the sum of bits mod 2.
@@ -88,16 +91,7 @@ class DefaultDataset(BaseDataset):
         return {"src" : torch.tensor([d[0] for d in data]),
                 "tgt" : torch.tensor([d[1] for d in data]).flatten()}
 
-@click.group()
-def default_dataset(): pass
-
-def get_worker_init_fn(seed):
-    def worker_init_fn(worker_id):
-        worker_info = torch.utils.data.get_worker_info()
-        worker_info.dataset.generator = random.Random(worker_info.seed)
-    return worker_init_fn
-
-@default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
+@dataset.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--size"        , "sample_size"              , type=int               , default=10)
 @click.option("--zero_dst"    , "zero_semeqv_distribution" , cls=DistributionOption , default="[1]")
 @click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
@@ -107,11 +101,12 @@ def get_worker_init_fn(seed):
 @click.option("--shuffle"     , "shuffle"                  , type=bool              , default=True)
 @click.option("--drop_last"   , "drop_last"                , type=bool              , default=True)
 @click.option("--device"      , "device"                   , type=str               , default="cpu")
+@click.option("--split"      , "split"                   , type=str               , default="train")
 @click.pass_obj
-def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device):
-    trainer.set_trainsplit(
+def default(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device, split):
+    split2dataset[split](trainer)(
         torch.utils.data.DataLoader(
-            dataset := DefaultDataset(
+            dataset := Default(
                 sample_size              = sample_size,
                 zero_semeqv_distribution = zero_semeqv_distribution,
                 one_semeqv_distribution  = one_semeqv_distribution,
@@ -128,64 +123,4 @@ def trainsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distri
         )
     )
 
-@default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option("--size"        , "sample_size"              , type=int               , default=10)
-@click.option("--zero_dst"    , "zero_semeqv_distribution" , cls=DistributionOption , default="[1]")
-@click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
-@click.option("--seed"        , "seed"                     , type=int               , default=14)
-@click.option("--batch_size"  , "batch_size"               , type=int               , default=100)
-@click.option("--num_workers" , "num_workers"              , type=int               , default=1)
-@click.option("--shuffle"     , "shuffle"                  , type=bool              , default=True)
-@click.option("--drop_last"   , "drop_last"                , type=bool              , default=True)
-@click.option("--device"      , "device"                   , type=str               , default="cpu")
-@click.pass_obj
-def validsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device):
-    trainer.set_validsplit(
-        torch.utils.data.DataLoader(
-            dataset := DefaultDataset(
-                sample_size              = sample_size,
-                zero_semeqv_distribution = zero_semeqv_distribution,
-                one_semeqv_distribution  = one_semeqv_distribution,
-                seed                     = seed,
-                device                   = device,
-                split                    = "validation"
-            ),
-            batch_size  = batch_size,
-            num_workers = num_workers,
-            shuffle     = shuffle,
-            drop_last   = drop_last,
-            collate_fn  = dataset.collate_fn,
-            worker_init_fn = get_worker_init_fn(seed)
-        )
-    )
 
-@default_dataset.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option("--size"        , "sample_size"              , type=int               , default=10)
-@click.option("--zero_dst"    , "zero_semeqv_distribution" , cls=DistributionOption , default="[1]")
-@click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
-@click.option("--seed"        , "seed"                     , type=int               , default=14)
-@click.option("--batch_size"  , "batch_size"               , type=int               , default=100)
-@click.option("--num_workers" , "num_workers"              , type=int               , default=1)
-@click.option("--shuffle"     , "shuffle"                  , type=bool              , default=False)
-@click.option("--drop_last"   , "drop_last"                , type=bool              , default=False)
-@click.option("--device"      , "device"                   , type=str               , default="cpu")
-@click.pass_obj
-def testsplit(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device):
-    trainer.set_testsplit(
-        torch.utils.data.DataLoader(
-            dataset := DefaultDataset(
-                sample_size              = sample_size,
-                zero_semeqv_distribution = zero_semeqv_distribution,
-                one_semeqv_distribution  = one_semeqv_distribution,
-                seed                     = seed,
-                device                   = device,
-                split                    = "validation"
-            ),
-            batch_size  = batch_size,
-            num_workers = num_workers,
-            shuffle     = shuffle,
-            drop_last   = drop_last,
-            collate_fn  = dataset.collate_fn,
-            worker_init_fn = get_worker_init_fn(seed)
-        )
-    )
