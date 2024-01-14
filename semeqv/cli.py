@@ -8,6 +8,7 @@ from semeqv.problem.xor import xor
 from semeqv import train_tokenizer, test, train, Trainer
 from functools import partial, reduce
 import matplotlib.pyplot as plt
+import jsonlines
 import seaborn
 import random
 import pandas
@@ -51,22 +52,22 @@ def cli(context, compile, epochs, seed, trainbar, validbar, testbar, epochbar):
 
 @cli.command()
 @click.pass_obj
-@click.option("--indexes" , "indexes" , type=(int,int), default=[(0,1),(2,3)], multiple=True)
-@click.option("--palette" , "palette" , type=str      , default="magma")
-@click.option("--title"   , "title"   , type=str      , default="")
-@click.option("--show"    , "show"    , type=bool     , default=False)
-@click.option("--etc"     , "etc"     , type=int      , default=1)
-@click.option("--path"    , "path"    , type=str      , default="")
-@click.option("--showconf", "showconf", type=bool     , default=True)
+@click.option("--indexes" , "indexes" , type=(int,int,str), default=[(0,1,"01"),(2,3,"23")], multiple=True)
+@click.option("--palette" , "palette" , type=str          , default="magma")
+@click.option("--title"   , "title"   , type=str          , default="")
+@click.option("--show"    , "show"    , type=bool         , default=False)
+@click.option("--etc"     , "etc"     , type=int          , default=1)
+@click.option("--path"    , "path"    , type=str          , default="")
+@click.option("--showconf", "showconf", type=bool         , default=True)
 @click.argument("paths", nargs=-1, type=click.Path())
 def view(_, paths, etc, indexes, palette, title, show, path, showconf):
-    dists  = [[numpy.load(path)[::etc,i,j] for path in paths] for i,j in indexes]
+    dists  = [[numpy.load(path)[::etc,i,j] for path in paths] for i,j,_ in indexes]
     maxlen = max([max(map(len,data)) for data in dists])
     dists  = [[list(trial) + [None] * (maxlen-len(trial)) for trial in data] for data in dists]
-    steps  = [value*etc      for trials       in dists            for trial       in trials            for value,_ in enumerate(trial)]
-    trials = [value          for trials       in dists            for value,trial in enumerate(trials) for _       in trial]
-    types  = [indexes[value] for value,trials in enumerate(dists) for trial       in trials            for _       in trial]
-    values = [value          for trials       in dists            for trial       in trials            for value   in trial]
+    steps  = [value*etc         for trials       in dists            for trial       in trials            for value,_ in enumerate(trial)]
+    trials = [value             for trials       in dists            for value,trial in enumerate(trials) for _       in trial]
+    types  = [indexes[value][2] for value,trials in enumerate(dists) for trial       in trials            for _       in trial]
+    values = [value             for trials       in dists            for trial       in trials            for value   in trial]
 
     dists = pandas.DataFrame.from_dict({"step":steps, "distance":values, "embedding pairs":types, "trials":trials})
     ax = seaborn.lineplot(data=dists, x="step", y="distance", hue="embedding pairs", palette=seaborn.color_palette(palette, len(indexes))) if showconf else \
@@ -112,6 +113,30 @@ def viewall(_, specials, path):
             if i==si and j == sj: plt.plot(numpy.arange(cdists.shape[0]),cdists[:,i,j], color=c)
     plt.show()
 
+@cli.command()
+@click.option("--inputs"  ,"inputs"  ,type=(click.Path(), str),default=[] , multiple=True)
+@click.option("--window"  ,"window"  ,type=int                ,default=1)
+@click.option("--etc"     ,"etc"     ,type=int                ,default=1)
+@click.option("--hline"   ,"hline"   ,type=(float, str, str)  ,default=(0, "red","--"))
+@click.option("--palette" ,"palette" ,type=str                ,default="magma")
+@click.option("--show"    ,"show"    ,type=bool               ,default=False)
+@click.option("--title"   ,"title"   ,type=str                ,default="Accuracy")
+@click.option("--output"  ,"output"  ,type=click.Path()       ,default="")
+def accplot(inputs,title,show,window,hline,etc,palette,output):
+    accuracies = [[obj["message"]["accuracy"] for _,obj in enumerate(jsonlines.open(path))] for _,(path,_) in enumerate(inputs)]
+    accuracies = [e for x in accuracies for e in numpy.convolve(numpy.array(x), numpy.ones(window)/window, mode='same')]
+    epochs     = [obj["message"][   "epoch"] for _,(path,_) in enumerate(inputs) for _,obj in enumerate(jsonlines.open(path))]
+    trials     = [i                          for i,(path,_) in enumerate(inputs) for _,  _ in enumerate(jsonlines.open(path))]
+    types      = [t                          for _,(path,t) in enumerate(inputs) for _,  _ in enumerate(jsonlines.open(path))]
+    data       = pandas.DataFrame.from_dict({"accuracy":accuracies[::etc], "epoch":epochs[::etc], "trials":trials[::etc], "types":types[::etc]})
+    ax = seaborn.lineplot(data=data, x="epoch", y="accuracy", hue="types",estimator="mean", palette=palette)
+    ax.axhline(y=hline[0],c=hline[1],linestyle=hline[2])
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.set_title(title)
+    plt.tight_layout()
+    if show: plt.show()
+    if output: ax.figure.savefig(output)
 
 cli.add_command(savers)
 cli.add_command(loss)

@@ -1,7 +1,6 @@
 from semeqv.problem import Dataset as BaseDataset
 from semeqv.problem import DistributionOption
 from semeqv.problem.xor.datasets import dataset
-from semeqv.problem import get_worker_init_fn
 from semeqv.problem import split2dataset
 import random
 import torch
@@ -41,7 +40,7 @@ class Default(BaseDataset):
 
         # build train/validation/test splits
         split2samples = {
-            "train"      : (trainsplit := samples[:int(len(samples)*.7)]),
+            "train"      : (trainsplit := samples[:int(len(samples)*.9)]),
             "validation" : (validsplit := samples[len(trainsplit):len(trainsplit)+int(len(samples)*.1)]),
             "test"       : (testsplit  := samples[len(trainsplit)+len(validsplit):])
         }
@@ -65,6 +64,7 @@ class Default(BaseDataset):
 
         # from list dataset to torch dataset
         self.dataset = (samples, predictions)
+        self.precomputed = [self[i] for i in range(len(samples))]
 
     def save(self):
         return self.generator.getstate()
@@ -76,13 +76,16 @@ class Default(BaseDataset):
         return len(self.dataset[0])
 
     def __getitem__(self, idx): 
-        src = self.dataset[0][idx] + [self.dataset[1][idx]]
-        src = [self.bin2eqv[e]() for e in src]
-        mask_idx = self.generator.randint(0,len(src)-2)
-        tgt = [-100] * len(src)
-        tgt[mask_idx] = src[mask_idx]
-        src[mask_idx] = len(self.zero_semeqv_distribution) + len(self.one_semeqv_distribution) + 2
-        return src, tgt
+        if self.split == "train":
+            src = self.dataset[0][idx] + [self.dataset[1][idx]]
+            src = [self.bin2eqv[e]() for e in src]
+            mask_idx = self.generator.randint(0,len(src)-2)
+            tgt = [-100] * len(src)
+            tgt[mask_idx] = src[mask_idx]
+            src[mask_idx] = len(self.zero_semeqv_distribution) + len(self.one_semeqv_distribution) + 2
+            return src, tgt
+        else: 
+            return self.precomputed[idx]
 
     def todevice(self, src, tgt):
         return {"src" : src.to(self.device), "tgt": tgt.to(self.device)}
@@ -97,13 +100,12 @@ class Default(BaseDataset):
 @click.option("--one_dst"     , "one_semeqv_distribution"  , cls=DistributionOption , default="[1]")
 @click.option("--seed"        , "seed"                     , type=int               , default=14)
 @click.option("--batch_size"  , "batch_size"               , type=int               , default=100)
-@click.option("--num_workers" , "num_workers"              , type=int               , default=1)
 @click.option("--shuffle"     , "shuffle"                  , type=bool              , default=True)
 @click.option("--drop_last"   , "drop_last"                , type=bool              , default=True)
 @click.option("--device"      , "device"                   , type=str               , default="cpu")
 @click.option("--split"      , "split"                   , type=str               , default="train")
 @click.pass_obj
-def default(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, num_workers, shuffle, drop_last, device, split):
+def default(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribution, seed, batch_size, shuffle, drop_last, device, split):
     split2dataset[split](trainer)(
         torch.utils.data.DataLoader(
             dataset := Default(
@@ -115,11 +117,10 @@ def default(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribut
                 split                    = "train"
             ),
             batch_size  = batch_size,
-            num_workers = num_workers,
+            num_workers = 0,
             shuffle     = shuffle,
             drop_last   = drop_last,
-            collate_fn  = dataset.collate_fn,
-            worker_init_fn = get_worker_init_fn(seed)
+            collate_fn  = dataset.collate_fn
         )
     )
 

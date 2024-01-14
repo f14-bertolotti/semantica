@@ -83,8 +83,9 @@ class Trainer:
     @click.command()
     @click.option("--amp", "amp" , type=bool, default=True)
     @click.option("--mini_steps", "mini_steps" , type=int, default=1)
+    @click.option("--etv", "etv" , type=int, default=1)
     @click.pass_obj
-    def train(trainer, amp, mini_steps):
+    def train(trainer, amp, etv, mini_steps):
 
         # starting training, initializing ###
         trainer.traincallback.start()
@@ -134,31 +135,32 @@ class Trainer:
             trainer.traincallback.end_epoch()
 
             # validation split ###
-            trainer.model.eval()
-            trainer.validcallback.start_epoch(epoch)
-            for step,batch in (bar:=trainer.validbar(enumerate(trainer.validsplit,1), total=len(trainer.validsplit), colour="blue")):
-                with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
-                    trainer.validcallback.start_step(step)
-                    data = trainer.trainsplit.dataset.todevice(**batch)
-                    pred = trainer.model(**data)
-                    loss = trainer.lossfn(**(data | pred))
-                trainer.validcallback.end_step(
-                    loss = loss.item(),
-                    data = data,
-                    pred = pred)
-                bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.validcallback.get_step_description()}", "blue"))
-            result = trainer.validcallback.get_epoch_results()
-            trainer.validcallback.end_epoch()
+            if epoch % etv == 0:
+                trainer.model.eval()
+                trainer.validcallback.start_epoch(epoch)
+                for step,batch in (bar:=trainer.validbar(enumerate(trainer.validsplit,1), total=len(trainer.validsplit), colour="blue")):
+                    with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
+                        trainer.validcallback.start_step(step)
+                        data = trainer.trainsplit.dataset.todevice(**batch)
+                        pred = trainer.model(**data)
+                        loss = trainer.lossfn(**(data | pred))
+                    trainer.validcallback.end_step(
+                        loss = loss.item(),
+                        data = data,
+                        pred = pred)
+                    bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.validcallback.get_step_description()}", "blue"))
+                result = trainer.validcallback.get_epoch_results()
+                trainer.validcallback.end_epoch()
 
-            # one epoch done, saving if necessary ###
-            trainer.saver.save(
-                epoch, 
-                result, 
-                trainer.optimizer, 
-                uncompiled, 
-                trainer.trainsplit.dataset, 
-                trainer.validsplit.dataset
-            )
+                # one epoch done, saving if necessary ###
+                trainer.saver.save(
+                    epoch, 
+                    result, 
+                    trainer.optimizer, 
+                    uncompiled, 
+                    trainer.trainsplit.dataset, 
+                    trainer.validsplit.dataset
+                )
 
         # all epochs done, finishing ... ###
         trainer.traincallback.end()

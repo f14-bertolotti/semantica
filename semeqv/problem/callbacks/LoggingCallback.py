@@ -7,7 +7,7 @@ class LoggingCallback(DefaultCallback):
     def __init__(self, trainer, step_log_path="", epoch_log_path=""): 
         super().__init__(trainer)
 
-        self.format = "{\"lebel\":%(levelname)s, \"time\":%(asctime)s, \"name\":%(name)s, \"message\":{%(message)s}}"
+        self.format = "{\"lebel\":\"%(levelname)s\", \"time\":\"%(asctime)s\", \"message\":{%(message)s}}"
 
         self.step_logger  = logging.getLogger(step_log_path)
         self.epoch_logger = logging.getLogger(epoch_log_path)

@@ -1,7 +1,7 @@
 from semeqv.problem.xor.models import model
 import click, torch
 
-class Default(torch.nn.Module):
+class Transformer(torch.nn.Module):
 
     def __init__(
             self,
@@ -21,8 +21,10 @@ class Default(torch.nn.Module):
 
         if semeqv_init[0] and semeqv_init[0]:
             with torch.no_grad():
-                self.embedding.weight[:semeqv_init[0]] = self.embedding.weight[0]
-                self.embedding.weight[semeqv_init[0]:semeqv_init[0]+semeqv_init[1]] = self.embedding.weight[semeqv_init[0]]
+                self.input_embedding.weight[:semeqv_init[0]] = self.input_embedding.weight[0]
+                self.input_embedding.weight[semeqv_init[0]:semeqv_init[0]+semeqv_init[1]] = self.input_embedding.weight[semeqv_init[0]]
+                self.output_embedding.weight[:semeqv_init[0]] = self.output_embedding.weight[0]
+                self.output_embedding.weight[semeqv_init[0]:semeqv_init[0]+semeqv_init[1]] = self.output_embedding.weight[semeqv_init[0]]
 
         self.encoder   = torch.nn.TransformerEncoder(
             torch.nn.TransformerEncoderLayer(
@@ -62,9 +64,9 @@ class Default(torch.nn.Module):
 @click.option("--activation"       , "activation"       , type=str       , default="relu")
 @click.option("--device"           , "device"           , type=str       , default="cpu")
 @click.pass_obj
-def default(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, activation, device):
+def transformer(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, activation, device):
     trainer.set_model(
-        Default(
+        Transformer(
             layers           = layers,
             src_vocab_size   = src_vocab_size,
             tgt_vocab_size   = tgt_vocab_size,
@@ -78,3 +80,4 @@ def default(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, fee
         )
     )
 
+#printservice@eft.it fronte/retro numero di telefono
