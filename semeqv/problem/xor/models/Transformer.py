@@ -36,7 +36,8 @@ class Transformer(torch.nn.Module):
                 device          = device,
                 batch_first     = True,
             ),
-            num_layers = layers
+            num_layers = layers,
+            enable_nested_tensor=heads%2==0
         )
 
     def forward(self, src, tgt):

@@ -8,13 +8,6 @@ class TransformerWT(Transformer):
         super().__init__(*args, **kwargs)
         self.output_embedding = self.input_embedding
 
-    def forward(self, src, tgt):
-        embeddings = self.input_embedding(src)
-        encoded    = self.encoder(embeddings)
-        logits     = encoded @ self.output_embedding.weight.T
-        logits     = logits.view(logits.size(0)*logits.size(1),logits.size(2))
-        return {"logits": logits, "prd" : logits.argmax(-1)}
-
 @model.group(invoke_without_command=True, context_settings={'show_default': True})
 @click.option("--layers"           , "layers"           , type=int       , default=3)
 @click.option("--src_vocab_size"   , "src_vocab_size"   , type=int       , default=2)

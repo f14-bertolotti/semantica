@@ -122,14 +122,16 @@ def viewall(_, specials, path):
 @click.option("--show"    ,"show"    ,type=bool               ,default=False)
 @click.option("--title"   ,"title"   ,type=str                ,default="Accuracy")
 @click.option("--output"  ,"output"  ,type=click.Path()       ,default="")
-def accplot(inputs,title,show,window,hline,etc,palette,output):
+@click.option("--showconf", "showconf", type=bool     , default=True)
+def accplot(inputs,title,show,window,hline,etc,palette,showconf,output):
     accuracies = [[obj["message"]["accuracy"] for _,obj in enumerate(jsonlines.open(path))] for _,(path,_) in enumerate(inputs)]
     accuracies = [e for x in accuracies for e in numpy.convolve(numpy.array(x), numpy.ones(window)/window, mode='same')]
     epochs     = [obj["message"][   "epoch"] for _,(path,_) in enumerate(inputs) for _,obj in enumerate(jsonlines.open(path))]
     trials     = [i                          for i,(path,_) in enumerate(inputs) for _,  _ in enumerate(jsonlines.open(path))]
     types      = [t                          for _,(path,t) in enumerate(inputs) for _,  _ in enumerate(jsonlines.open(path))]
     data       = pandas.DataFrame.from_dict({"accuracy":accuracies[::etc], "epoch":epochs[::etc], "trials":trials[::etc], "types":types[::etc]})
-    ax = seaborn.lineplot(data=data, x="epoch", y="accuracy", hue="types",estimator="mean", palette=palette)
+    ax = seaborn.lineplot(data=data, x="epoch", y="accuracy", hue="types",estimator="mean", palette=palette)if showconf else \
+         seaborn.lineplot(data=data, x="epoch", y="accuracy", hue="types", palette=palette, units="trials", estimator=None)
     ax.axhline(y=hline[0],c=hline[1],linestyle=hline[2])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)

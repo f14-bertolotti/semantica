@@ -1,6 +1,6 @@
 DEVICE=cuda:0
 
-data/xor/%/modellast.pt data/xor/%/input_cdists.npy data/xor/%/output_cdists.npy:
+data/xor-small/%/modellast.pt data/xor-small/%/input_cdists.npy data/xor-small/%/output_cdists.npy:
 	mkdir -p $(dir $@)
 	PYTHONPATH=:.:semeqv \
 	python3 semeqv/cli.py \
@@ -24,7 +24,7 @@ data/xor/%/modellast.pt data/xor/%/input_cdists.npy data/xor/%/output_cdists.npy
 	cli loss cross-entropy \
 	cli xor dataset default \
 		--zero_dst [.1,.9] \
-		--one_dst  [.1,.9] \
+		--one_dst  [.5,.5] \
 		--drop_last False \
 		--batch_size 1024 \
 		--shuffle True \
@@ -33,7 +33,7 @@ data/xor/%/modellast.pt data/xor/%/input_cdists.npy data/xor/%/output_cdists.npy
 		--split "train" \
 	cli xor dataset default \
 		--zero_dst [.1,.9] \
-		--one_dst  [.1,.9] \
+		--one_dst  [.5,.5] \
 		--drop_last False \
 		--batch_size 1024 \
 		--shuffle False \
@@ -61,50 +61,50 @@ data/xor/%/modellast.pt data/xor/%/input_cdists.npy data/xor/%/output_cdists.npy
 		--etc 0 \
 	cli train --amp False --etv 100
 
-data/xor/embeddings_wt.pdf: \
-	data/xor/42-transformerwt/input_cdists.npy \
-	data/xor/43-transformerwt/input_cdists.npy \
-	data/xor/44-transformerwt/input_cdists.npy \
-	data/xor/45-transformerwt/input_cdists.npy \
-	data/xor/46-transformerwt/input_cdists.npy
+data/xor-small/embeddings_wt.pdf: \
+	data/xor-small/42-transformerwt/input_cdists.npy \
+	data/xor-small/43-transformerwt/input_cdists.npy \
+	data/xor-small/44-transformerwt/input_cdists.npy \
+	data/xor-small/45-transformerwt/input_cdists.npy \
+	data/xor-small/46-transformerwt/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✓ weight tying" --path $@ --etc 1000 \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor/input_embeddings.pdf: \
-	data/xor/42-transformer/input_cdists.npy \
-	data/xor/43-transformer/input_cdists.npy \
-	data/xor/44-transformer/input_cdists.npy \
-	data/xor/45-transformer/input_cdists.npy \
-	data/xor/46-transformer/input_cdists.npy
+data/xor-small/input_embeddings.pdf: \
+	data/xor-small/42-transformer/input_cdists.npy \
+	data/xor-small/43-transformer/input_cdists.npy \
+	data/xor-small/44-transformer/input_cdists.npy \
+	data/xor-small/45-transformer/input_cdists.npy \
+	data/xor-small/46-transformer/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor/output_embeddings.pdf: \
-	data/xor/42-transformer/output_cdists.npy \
-	data/xor/43-transformer/output_cdists.npy \
-	data/xor/44-transformer/output_cdists.npy \
-	data/xor/45-transformer/output_cdists.npy \
-	data/xor/46-transformer/output_cdists.npy
+data/xor-small/output_embeddings.pdf: \
+	data/xor-small/42-transformer/output_cdists.npy \
+	data/xor-small/43-transformer/output_cdists.npy \
+	data/xor-small/44-transformer/output_cdists.npy \
+	data/xor-small/45-transformer/output_cdists.npy \
+	data/xor-small/46-transformer/output_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor/accuracies.pdf: \
-	data/xor/42-transformer/valid_epoch.log \
-	data/xor/43-transformer/valid_epoch.log \
-	data/xor/44-transformer/valid_epoch.log \
-	data/xor/45-transformer/valid_epoch.log \
-	data/xor/46-transformer/valid_epoch.log \
-	data/xor/42-transformerwt/valid_epoch.log \
-	data/xor/43-transformerwt/valid_epoch.log \
-	data/xor/44-transformerwt/valid_epoch.log \
-	data/xor/45-transformerwt/valid_epoch.log \
-	data/xor/46-transformerwt/valid_epoch.log
+data/xor-small/accuracies.pdf: \
+	data/xor-small/42-transformer/valid_epoch.log \
+	data/xor-small/43-transformer/valid_epoch.log \
+	data/xor-small/44-transformer/valid_epoch.log \
+	data/xor-small/45-transformer/valid_epoch.log \
+	data/xor-small/46-transformer/valid_epoch.log \
+	data/xor-small/42-transformerwt/valid_epoch.log \
+	data/xor-small/43-transformerwt/valid_epoch.log \
+	data/xor-small/44-transformerwt/valid_epoch.log \
+	data/xor-small/45-transformerwt/valid_epoch.log \
+	data/xor-small/46-transformerwt/valid_epoch.log
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli accplot \
 		--title "Accuracy" \
 		--inputs $(shell python -c "print(\" --inputs \".join([p  + \" \" + (\"\\\"✓ weight tying\\\"\" if \"wt\" in p else \"\\\"✗ weight tying\\\"\") for p in \"$^\".split(\" \")]))") \
@@ -114,7 +114,7 @@ data/xor/accuracies.pdf: \
 		--output $@
 
 figs: \
-	data/xor/embeddings_wt.pdf \
-	data/xor/input_embeddings.pdf \
-	data/xor/output_embeddings.pdf \
-	data/xor/accuracies.pdf
+	data/xor-small/embeddings_wt.pdf \
+	data/xor-small/input_embeddings.pdf \
+	data/xor-small/output_embeddings.pdf \
+	data/xor-small/accuracies.pdf
