@@ -12,19 +12,11 @@ class Transformer(torch.nn.Module):
             feedforward_size = 512,
             heads            = 2,
             dropout          = .1,
-            semeqv_init      = (0,0),
             activation       = "relu",
             device           = "cpu"):
         super().__init__()
         self.input_embedding  = torch.nn.Embedding(src_vocab_size, embedding_size, device=device)
         self.output_embedding = torch.nn.Embedding(tgt_vocab_size, embedding_size, device=device)
-
-        if semeqv_init[0] and semeqv_init[0]:
-            with torch.no_grad():
-                self.input_embedding.weight[:semeqv_init[0]] = self.input_embedding.weight[0]
-                self.input_embedding.weight[semeqv_init[0]:semeqv_init[0]+semeqv_init[1]] = self.input_embedding.weight[semeqv_init[0]]
-                self.output_embedding.weight[:semeqv_init[0]] = self.output_embedding.weight[0]
-                self.output_embedding.weight[semeqv_init[0]:semeqv_init[0]+semeqv_init[1]] = self.output_embedding.weight[semeqv_init[0]]
 
         self.encoder   = torch.nn.TransformerEncoder(
             torch.nn.TransformerEncoderLayer(
@@ -60,12 +52,11 @@ class Transformer(torch.nn.Module):
 @click.option("--embedding_size"   , "embedding_size"   , type=int       , default=128)
 @click.option("--feedforward_size" , "feedforward_size" , type=int       , default=512)
 @click.option("--heads"            , "heads"            , type=int       , default=2)
-@click.option("--semeqvinit"       , "semeqvinit"       , type=(int,int) , default=(0,0))
 @click.option("--dropout"          , "dropout"          , type=float     , default=.1)
 @click.option("--activation"       , "activation"       , type=str       , default="relu")
 @click.option("--device"           , "device"           , type=str       , default="cpu")
 @click.pass_obj
-def transformer(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, activation, device):
+def transformer(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, dropout, activation, device):
     trainer.set_model(
         Transformer(
             layers           = layers,
@@ -75,10 +66,8 @@ def transformer(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size,
             feedforward_size = feedforward_size,
             heads            = heads,
             dropout          = dropout,
-            semeqv_init      = semeqvinit,
             activation       = activation,
             device           = device
         )
     )
 
-#printservice@eft.it fronte/retro numero di telefono

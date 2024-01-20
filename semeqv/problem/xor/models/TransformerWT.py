@@ -15,12 +15,11 @@ class TransformerWT(Transformer):
 @click.option("--embedding_size"   , "embedding_size"   , type=int       , default=128)
 @click.option("--feedforward_size" , "feedforward_size" , type=int       , default=512)
 @click.option("--heads"            , "heads"            , type=int       , default=2)
-@click.option("--semeqvinit"       , "semeqvinit"       , type=(int,int) , default=(0,0))
 @click.option("--dropout"          , "dropout"          , type=float     , default=.1)
 @click.option("--activation"       , "activation"       , type=str       , default="relu")
 @click.option("--device"           , "device"           , type=str       , default="cpu")
 @click.pass_obj
-def transformerwt(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, semeqvinit, dropout, activation, device):
+def transformerwt(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_size, feedforward_size, heads, dropout, activation, device):
     trainer.set_model(
         TransformerWT(
             layers           = layers,
@@ -30,7 +29,6 @@ def transformerwt(trainer, layers, src_vocab_size, tgt_vocab_size, embedding_siz
             feedforward_size = feedforward_size,
             heads            = heads,
             dropout          = dropout,
-            semeqv_init      = semeqvinit,
             activation       = activation,
             device           = device
         )

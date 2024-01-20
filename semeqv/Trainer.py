@@ -52,9 +52,6 @@ class Trainer:
             trainer.validsplit.dataset
         )
 
-        # compile model if trainer.model is set to true ###
-        # always keep the "uncompiled" version for checkpointing purposes
-        uncompiled = trainer.model
         if trainer.compile:
             torch.set_float32_matmul_precision('high')
             trainer.model = torch.compile(trainer.model)
@@ -72,7 +69,7 @@ class Trainer:
                 data = data,
                 pred = pred)
             bar.set_description(termcolor.colored(f"e:{epoch} {trainer.testcallback.get_step_description()}", "green"))
-        result = trainer.testcallback.get_epoch_results()
+        trainer.testcallback.get_epoch_results()
         trainer.testcallback.end_epoch()
 
         # all epochs done, finishing ... ###
@@ -81,11 +78,13 @@ class Trainer:
 
     @staticmethod
     @click.command()
-    @click.option("--amp", "amp" , type=bool, default=True)
-    @click.option("--mini_steps", "mini_steps" , type=int, default=1)
-    @click.option("--etv", "etv" , type=int, default=1)
+    @click.option("--amp"            , "amp"            , type=bool , default=True)
+    @click.option("--mini_steps"     , "mini_steps"     , type=int  , default=1)
+    @click.option("--etv"            , "etv"            , type=int  , default=1)
+    @click.option("--detect_anomaly" , "detect_anomaly" , type=bool , default=False)
     @click.pass_obj
-    def train(trainer, amp, etv, mini_steps):
+    def train(trainer, amp, etv, mini_steps, detect_anomaly):
+        torch.autograd.set_detect_anomaly(detect_anomaly)
 
         # starting training, initializing ###
         trainer.traincallback.start()
