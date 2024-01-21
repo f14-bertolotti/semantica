@@ -1,16 +1,18 @@
 DEVICE=cuda:0
+EPOCHS=150000
 
-data/xor-medium/%/modellast.pt data/xor-medium/%/input_cdists.npy data/xor-medium/%/output_cdists.npy data/xor-medium/%/valid_epoch.log:
+data/xor-mlp-small/%/modellast.pt data/xor-mlp-small/%/input_cdists.npy data/xor-mlp-small/%/output_cdists.npy data/xor-mlp-small/%/valid_epoch.log:
 	mkdir -p $(dir $@)
-	cp $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/MakefileMedium.mk $(dir $@)makefile
+	cp $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/MakefileMLPSmall.mk $(dir $@)makefile
 	PYTHONPATH=:.:semeqv \
 	python3 semeqv/cli.py \
 		--seed $(shell python -c "print(\"$*\".split(\"-\")[0])") \
 		--compile False \
-		--epochs 300000 \
+		--epochs ${EPOCHS} \
 		--trainbar False \
 		--validbar False \
 		--epochbar True \
+		--etv 100 \
 	cli callbacks cdists \
 		--etc 10000 \
 		--input_embedding_path  $(dir $@)/input_cdists \
@@ -42,16 +44,16 @@ data/xor-medium/%/modellast.pt data/xor-medium/%/input_cdists.npy data/xor-mediu
 		--device ${DEVICE} \
 		--split "validation" \
 	cli xor model $(shell python -c "print(\"$*\".split(\"-\")[1])") \
-		--heads 1 \
-		--layers 2 \
-		--embedding_size 32 \
-		--feedforward_size 32 \
-		--activation "gelu" \
+		--layers 1 \
+		--embedding_size 4 \
+		--sequence_size 8 \
+		--tokenwise_feedforward_size 4 \
+		--channelwise_feedforward_size 8 \
+		--activation "relu" \
 		--src_vocab_size 7 \
 		--tgt_vocab_size 7 \
-		--dropout 0 \
 		--device ${DEVICE} \
-	cli optimizers adamw --learning_rate 0.0001 --weight_decay 0.1 \
+	cli optimizers adamw --learning_rate 0.0005 --weight_decay 0.1 \
 	cli schedulers cosine --lrmin 0.00001 --tmax 10000 \
 	cli savers default-saver \
 		--dirpath $(dir $@) \
@@ -60,52 +62,52 @@ data/xor-medium/%/modellast.pt data/xor-medium/%/input_cdists.npy data/xor-mediu
 		--savebest True \
 		--mode "max" \
 		--etc 0 \
-	cli train --amp False --etv 100
+	cli train
 
-data/xor-medium/embeddings_wt.pdf: \
-	data/xor-medium/42-transformerwt/input_cdists.npy \
-	data/xor-medium/43-transformerwt/input_cdists.npy \
-	data/xor-medium/44-transformerwt/input_cdists.npy \
-	data/xor-medium/45-transformerwt/input_cdists.npy \
-	data/xor-medium/46-transformerwt/input_cdists.npy
+data/xor-mlp-small/embeddings_wt.pdf: \
+	data/xor-mlp-small/42-mlpwt/input_cdists.npy \
+	data/xor-mlp-small/43-mlpwt/input_cdists.npy \
+	data/xor-mlp-small/44-mlpwt/input_cdists.npy \
+	data/xor-mlp-small/45-mlpwt/input_cdists.npy \
+	data/xor-mlp-small/46-mlpwt/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✓ weight tying" --path $@ --etc 1000 \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor-medium/input_embeddings.pdf: \
-	data/xor-medium/42-transformer/input_cdists.npy \
-	data/xor-medium/43-transformer/input_cdists.npy \
-	data/xor-medium/44-transformer/input_cdists.npy \
-	data/xor-medium/45-transformer/input_cdists.npy \
-	data/xor-medium/46-transformer/input_cdists.npy
+data/xor-mlp-small/input_embeddings.pdf: \
+	data/xor-mlp-small/42-mlp/input_cdists.npy \
+	data/xor-mlp-small/43-mlp/input_cdists.npy \
+	data/xor-mlp-small/44-mlp/input_cdists.npy \
+	data/xor-mlp-small/45-mlp/input_cdists.npy \
+	data/xor-mlp-small/46-mlp/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor-medium/output_embeddings.pdf: \
-	data/xor-medium/42-transformer/output_cdists.npy \
-	data/xor-medium/43-transformer/output_cdists.npy \
-	data/xor-medium/44-transformer/output_cdists.npy \
-	data/xor-medium/45-transformer/output_cdists.npy \
-	data/xor-medium/46-transformer/output_cdists.npy
+data/xor-mlp-small/output_embeddings.pdf: \
+	data/xor-mlp-small/42-mlp/output_cdists.npy \
+	data/xor-mlp-small/43-mlp/output_cdists.npy \
+	data/xor-mlp-small/44-mlp/output_cdists.npy \
+	data/xor-mlp-small/45-mlp/output_cdists.npy \
+	data/xor-mlp-small/46-mlp/output_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor-medium/accuracies.pdf: \
-	data/xor-medium/42-transformer/valid_epoch.log \
-	data/xor-medium/42-transformerwt/valid_epoch.log \
-	data/xor-medium/43-transformer/valid_epoch.log \
-	data/xor-medium/43-transformerwt/valid_epoch.log \
-	data/xor-medium/44-transformer/valid_epoch.log \
-	data/xor-medium/44-transformerwt/valid_epoch.log \
-	data/xor-medium/45-transformer/valid_epoch.log \
-	data/xor-medium/45-transformerwt/valid_epoch.log \
-	data/xor-medium/46-transformer/valid_epoch.log \
-	data/xor-medium/46-transformerwt/valid_epoch.log
+data/xor-mlp-small/accuracies.pdf: \
+	data/xor-mlp-small/42-mlp/valid_epoch.log \
+	data/xor-mlp-small/42-mlpwt/valid_epoch.log \
+	data/xor-mlp-small/43-mlp/valid_epoch.log \
+	data/xor-mlp-small/43-mlpwt/valid_epoch.log \
+	data/xor-mlp-small/44-mlp/valid_epoch.log \
+	data/xor-mlp-small/44-mlpwt/valid_epoch.log \
+	data/xor-mlp-small/45-mlp/valid_epoch.log \
+	data/xor-mlp-small/45-mlpwt/valid_epoch.log \
+	data/xor-mlp-small/46-mlp/valid_epoch.log \
+	data/xor-mlp-small/46-mlpwt/valid_epoch.log
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli accplot \
 		--title "Accuracy" \
 		--inputs $(shell python -c "print(\" --inputs \".join([p  + \" \" + (\"\\\"✓ weight tying\\\"\" if \"wt\" in p else \"\\\"✗ weight tying\\\"\") for p in \"$^\".split(\" \")]))") \
@@ -115,7 +117,7 @@ data/xor-medium/accuracies.pdf: \
 		--output $@
 
 figs: \
-	data/xor-medium/accuracies.pdf \
-	data/xor-medium/embeddings_wt.pdf \
-	data/xor-medium/input_embeddings.pdf \
-	data/xor-medium/output_embeddings.pd
+	data/xor-mlp-small/accuracies.pdf \
+	data/xor-mlp-small/embeddings_wt.pdf \
+	data/xor-mlp-small/input_embeddings.pdf \
+	data/xor-mlp-small/output_embeddings.pdf

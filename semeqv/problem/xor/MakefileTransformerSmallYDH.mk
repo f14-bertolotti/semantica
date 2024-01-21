@@ -1,16 +1,18 @@
 DEVICE=cuda:0
+EPOCHS=150000
 
-data/xor-ndh/%/modellast.pt data/xor-ndh/%/input_cdists.npy data/xor-ndh/%/output_cdists.npy data/xor-ndh/%/valid_epoch.log:
+data/xor-transformer-ydh/%/modellast.pt data/xor-transformer-ydh/%/input_cdists.npy data/xor-transformer-ydh/%/output_cdists.npy data/xor-transformer-ydh/%/valid_epoch.log:
 	mkdir -p $(dir $@)
-	cp $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/MakefileSmallNDH.mk $(dir $@)makefile
+	cp $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/MakefileTransformerSmallYDH.mk $(dir $@)makefile
 	PYTHONPATH=:.:semeqv \
 	python3 semeqv/cli.py \
 		--seed $(shell python -c "print(\"$*\".split(\"-\")[0])") \
 		--compile False \
-		--epochs 150000 \
+		--epochs ${EPOCHS} \
 		--trainbar False \
 		--validbar False \
 		--epochbar True \
+		--etv 100 \
 	cli callbacks cdists \
 		--etc 10000 \
 		--input_embedding_path  $(dir $@)/input_cdists \
@@ -25,7 +27,7 @@ data/xor-ndh/%/modellast.pt data/xor-ndh/%/input_cdists.npy data/xor-ndh/%/outpu
 	cli loss cross-entropy \
 	cli xor dataset default \
 		--zero_dst [1,0] \
-		--one_dst  [.1,.9] \
+		--one_dst  [.5,.5] \
 		--drop_last False \
 		--batch_size 1024 \
 		--shuffle True \
@@ -34,7 +36,7 @@ data/xor-ndh/%/modellast.pt data/xor-ndh/%/input_cdists.npy data/xor-ndh/%/outpu
 		--split "train" \
 	cli xor dataset default \
 		--zero_dst [1,0] \
-		--one_dst  [.1,.9] \
+		--one_dst  [.5,.5] \
 		--drop_last False \
 		--batch_size 1024 \
 		--shuffle False \
@@ -60,39 +62,39 @@ data/xor-ndh/%/modellast.pt data/xor-ndh/%/input_cdists.npy data/xor-ndh/%/outpu
 		--savebest True \
 		--mode "max" \
 		--etc 0 \
-	cli train --amp False --etv 100
+	cli train
 
-data/xor-ndh/embeddings_wt.pdf: \
-	data/xor-ndh/42-transformerwt/input_cdists.npy \
-	data/xor-ndh/43-transformerwt/input_cdists.npy \
-	data/xor-ndh/44-transformerwt/input_cdists.npy \
-	data/xor-ndh/45-transformerwt/input_cdists.npy \
-	data/xor-ndh/46-transformerwt/input_cdists.npy
+data/xor-transformer-ydh/embeddings_wt.pdf: \
+	data/xor-transformer-ydh/42-transformerwt/input_cdists.npy \
+	data/xor-transformer-ydh/43-transformerwt/input_cdists.npy \
+	data/xor-transformer-ydh/44-transformerwt/input_cdists.npy \
+	data/xor-transformer-ydh/45-transformerwt/input_cdists.npy \
+	data/xor-transformer-ydh/46-transformerwt/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✓ weight tying" --path $@ --etc 1000 \
-		--indexes 2 3 "✗ distributional hyp." $^
+		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor-ndh/input_embeddings.pdf: \
-	data/xor-ndh/42-transformer/input_cdists.npy \
-	data/xor-ndh/43-transformer/input_cdists.npy \
-	data/xor-ndh/44-transformer/input_cdists.npy \
-	data/xor-ndh/45-transformer/input_cdists.npy \
-	data/xor-ndh/46-transformer/input_cdists.npy
+data/xor-transformer-ydh/input_embeddings.pdf: \
+	data/xor-transformer-ydh/42-transformer/input_cdists.npy \
+	data/xor-transformer-ydh/43-transformer/input_cdists.npy \
+	data/xor-transformer-ydh/44-transformer/input_cdists.npy \
+	data/xor-transformer-ydh/45-transformer/input_cdists.npy \
+	data/xor-transformer-ydh/46-transformer/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 \
-		--indexes 2 3 "✗ distributional hyp." $^
+		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor-ndh/output_embeddings.pdf: \
-	data/xor-ndh/42-transformer/output_cdists.npy \
-	data/xor-ndh/43-transformer/output_cdists.npy \
-	data/xor-ndh/44-transformer/output_cdists.npy \
-	data/xor-ndh/45-transformer/output_cdists.npy \
-	data/xor-ndh/46-transformer/output_cdists.npy
+data/xor-transformer-ydh/output_embeddings.pdf: \
+	data/xor-transformer-ydh/42-transformer/output_cdists.npy \
+	data/xor-transformer-ydh/43-transformer/output_cdists.npy \
+	data/xor-transformer-ydh/44-transformer/output_cdists.npy \
+	data/xor-transformer-ydh/45-transformer/output_cdists.npy \
+	data/xor-transformer-ydh/46-transformer/output_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
 		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 \
-		--indexes 2 3 "✗ distributional hyp." $^
+		--indexes 2 3 "✓ distributional hyp." $^
 
-data/xor-ndh/accuracies.pdf: \
+data/xor-transformer-ydh/accuracies.pdf: \
 	data/xor-ndh/42-transformer/valid_epoch.log \
 	data/xor-ndh/42-transformerwt/valid_epoch.log \
 	data/xor-ndh/43-transformer/valid_epoch.log \
@@ -108,11 +110,11 @@ data/xor-ndh/accuracies.pdf: \
 		--inputs $(shell python -c "print(\" --inputs \".join([p  + \" \" + (\"\\\"✓ weight tying\\\"\" if \"wt\" in p else \"\\\"✗ weight tying\\\"\") for p in \"$^\".split(\" \")]))") \
 		--etc 1 \
 		--window 1 \
-		--hline 0.95 "black" "--" \
+		--hline 0.7 "black" "--" \
 		--output $@
 
 figs: \
-	data/xor-ndh/accuracies.pdf \
-	data/xor-ndh/embeddings_wt.pdf \
-	data/xor-ndh/input_embeddings.pdf \
-	data/xor-ndh/output_embeddings.pdf
+	data/xor-transformer-ydh/accuracies.pdf \
+	data/xor-transformer-ydh/embeddings_wt.pdf \
+	data/xor-transformer-ydh/input_embeddings.pdf \
+	data/xor-transformer-ydh/output_embeddings.pdf

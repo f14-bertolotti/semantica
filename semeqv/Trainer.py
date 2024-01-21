@@ -1,5 +1,4 @@
 import termcolor, click, torch, tqdm
-from semeqv.problem import grouped
 
 class FakeBar:
     def __init__(self): pass
@@ -8,11 +7,6 @@ class FakeBar:
         return self
     def __iter__(self): return self.iterator 
     def set_description(*args, **kwargs): pass
-
-class FakeScaler:
-    def scale(self, x): return x
-    def step(self, x): x.step()
-    def update(self): pass
 
 class Trainer:
 
@@ -26,16 +20,17 @@ class Trainer:
     def set_validbar(self, value): self.validbar = tqdm.tqdm if value else FakeBar(); return self
     def  set_testbar(self, value): self.testbar  = tqdm.tqdm if value else FakeBar(); return self
  
-    def         set_model(self, value): self.model         = value; return self
-    def       set_loss_fn(self, value): self.lossfn        = value; return self
-    def     set_optimizer(self, value): self.optimizer     = value; return self
-    def     set_scheduler(self, value): self.scheduler     = value; return self
-    def        set_epochs(self, value): self.epochs        = value; return self
-    def set_traincallback(self, value): self.traincallback = value; return self
-    def set_validcallback(self, value): self.validcallback = value; return self
-    def  set_testcallback(self, value): self.testcallback  = value; return self
-    def         set_saver(self, value): self.saver         = value; return self
-    def       set_compile(self, value): self.compile       = value; return self
+    def           set_model(self, value): self.model         = value; return self
+    def         set_loss_fn(self, value): self.lossfn        = value; return self
+    def       set_optimizer(self, value): self.optimizer     = value; return self
+    def       set_scheduler(self, value): self.scheduler     = value; return self
+    def          set_epochs(self, value): self.epochs        = value; return self
+    def   set_traincallback(self, value): self.traincallback = value; return self
+    def   set_validcallback(self, value): self.validcallback = value; return self
+    def    set_testcallback(self, value): self.testcallback  = value; return self
+    def           set_saver(self, value): self.saver         = value; return self
+    def         set_compile(self, value): self.compile       = value; return self
+    def set_epochs_to_valid(self, value): self.etv         = value; return self
 
     @staticmethod
     @click.command()
@@ -78,13 +73,9 @@ class Trainer:
 
     @staticmethod
     @click.command()
-    @click.option("--amp"            , "amp"            , type=bool , default=True)
-    @click.option("--mini_steps"     , "mini_steps"     , type=int  , default=1)
-    @click.option("--etv"            , "etv"            , type=int  , default=1)
-    @click.option("--detect_anomaly" , "detect_anomaly" , type=bool , default=False)
     @click.pass_obj
-    def train(trainer, amp, etv, mini_steps, detect_anomaly):
-        torch.autograd.set_detect_anomaly(detect_anomaly)
+    def train(trainer):
+        result = None
 
         # starting training, initializing ###
         trainer.traincallback.start()
@@ -105,44 +96,38 @@ class Trainer:
             torch.set_float32_matmul_precision('high')
             trainer.model = torch.compile(trainer.model)
 
-        scaler = torch.cuda.amp.GradScaler() if amp else FakeScaler()
-
         # main training loop ###
         for epoch in trainer.epochbar(iter(lst:=range(epoch, trainer.epochs)), total=len(lst)):
             
             # trainsplit ###
             trainer.model.train()
             trainer.traincallback.start_epoch(epoch)
-            for step,group in (bar:=trainer.trainbar(enumerate(grouped(trainer.trainsplit,mini_steps),1), total=len(trainer.trainsplit)//mini_steps+1, colour="white")):
-                with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
-                    for batch in group:
-                        trainer.traincallback.start_step(step)
-                        trainer.optimizer.zero_grad()
-                        data = trainer.trainsplit.dataset.todevice(**batch)
-                        pred = trainer.model(**data)
-                        loss = trainer.lossfn(**(data | pred))
-                        scaler.scale(loss/len(group)).backward()
-                        trainer.traincallback.end_step(
-                            loss = loss.item(),
-                            data = data,
-                            pred = pred)
-                        bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.traincallback.get_step_description()}","white"))
-                    scaler.step(trainer.optimizer)
-                    scaler.update()
+            for step,batch in (bar:=trainer.trainbar(enumerate(trainer.trainsplit,1), total=len(trainer.trainsplit), colour="white")):
+                    trainer.traincallback.start_step(step)
+                    trainer.optimizer.zero_grad()
+                    data = trainer.trainsplit.dataset.todevice(**batch)
+                    pred = trainer.model(**data)
+                    loss = trainer.lossfn(**(data | pred))
+                    loss.backward()
+                    trainer.traincallback.end_step(
+                        loss = loss.item(),
+                        data = data,
+                        pred = pred)
+                    bar.set_description(termcolor.colored(f"e:{epoch}/{trainer.epochs} {trainer.traincallback.get_step_description()}","white"))
+                    trainer.optimizer.step()
                     trainer.scheduler.step()
             result = trainer.traincallback.get_epoch_results()
             trainer.traincallback.end_epoch()
 
             # validation split ###
-            if epoch % etv == 0:
+            if epoch % trainer.etv == 0:
                 trainer.model.eval()
                 trainer.validcallback.start_epoch(epoch)
                 for step,batch in (bar:=trainer.validbar(enumerate(trainer.validsplit,1), total=len(trainer.validsplit), colour="blue")):
-                    with torch.autocast(device_type='cuda', enabled=amp, dtype=torch.float16):
-                        trainer.validcallback.start_step(step)
-                        data = trainer.trainsplit.dataset.todevice(**batch)
-                        pred = trainer.model(**data)
-                        loss = trainer.lossfn(**(data | pred))
+                    trainer.validcallback.start_step(step)
+                    data = trainer.trainsplit.dataset.todevice(**batch)
+                    pred = trainer.model(**data)
+                    loss = trainer.lossfn(**(data | pred))
                     trainer.validcallback.end_step(
                         loss = loss.item(),
                         data = data,
