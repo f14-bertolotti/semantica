@@ -1,5 +1,8 @@
 DEVICE=cuda:0
 EPOCHS=300000
+WINDOW=1
+CUTOFF=1
+YLIM=0 4
 
 data/xor-mlp-medium/%/modellast.pt data/xor-mlp-medium/%/input_cdists.npy data/xor-mlp-medium/%/output_cdists.npy data/xor-mlp-medium/%/valid_epoch.log:
 	mkdir -p $(dir $@)
@@ -71,7 +74,7 @@ data/xor-mlp-medium/embeddings_wt.pdf: \
 	data/xor-mlp-medium/45-mlpwt/input_cdists.npy \
 	data/xor-mlp-medium/46-mlpwt/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
-		--title "✓ weight tying" --path $@ --etc 1000 \
+		--title "✓ weight tying" --path $@ --etc 1000 --ylim ${YLIM} \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
@@ -82,7 +85,7 @@ data/xor-mlp-medium/input_embeddings.pdf: \
 	data/xor-mlp-medium/45-mlp/input_cdists.npy \
 	data/xor-mlp-medium/46-mlp/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
-		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 \
+		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 --ylim ${YLIM} \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
@@ -93,7 +96,7 @@ data/xor-mlp-medium/output_embeddings.pdf: \
 	data/xor-mlp-medium/45-mlp/output_cdists.npy \
 	data/xor-mlp-medium/46-mlp/output_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
-		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 \
+		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 --ylim ${YLIM} \
 		--indexes 0 1 "✗ distributional hyp." \
 		--indexes 2 3 "✓ distributional hyp." $^
 
@@ -112,7 +115,8 @@ data/xor-mlp-medium/accuracies.pdf: \
 		--title "Accuracy" \
 		--inputs $(shell python -c "print(\" --inputs \".join([p  + \" \" + (\"\\\"✓ weight tying\\\"\" if \"wt\" in p else \"\\\"✗ weight tying\\\"\") for p in \"$^\".split(\" \")]))") \
 		--etc 1 \
-		--window 1 \
+		--window ${WINDOW} \
+		--cutoff ${CUTOFF} \
 		--hline 0.7 "black" "--" \
 		--output $@
 

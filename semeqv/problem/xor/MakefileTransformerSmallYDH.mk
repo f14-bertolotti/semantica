@@ -1,5 +1,8 @@
 DEVICE=cuda:0
 EPOCHS=150000
+WINDOW=1
+CUTOFF=1
+YLIM=0 4
 
 data/xor-transformer-ydh/%/modellast.pt data/xor-transformer-ydh/%/input_cdists.npy data/xor-transformer-ydh/%/output_cdists.npy data/xor-transformer-ydh/%/valid_epoch.log:
 	mkdir -p $(dir $@)
@@ -71,7 +74,7 @@ data/xor-transformer-ydh/embeddings_wt.pdf: \
 	data/xor-transformer-ydh/45-transformerwt/input_cdists.npy \
 	data/xor-transformer-ydh/46-transformerwt/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
-		--title "✓ weight tying" --path $@ --etc 1000 \
+		--title "✓ weight tying" --path $@ --etc 1000 --ylim ${YLIM} \
 		--indexes 2 3 "✓ distributional hyp." $^
 
 data/xor-transformer-ydh/input_embeddings.pdf: \
@@ -81,7 +84,7 @@ data/xor-transformer-ydh/input_embeddings.pdf: \
 	data/xor-transformer-ydh/45-transformer/input_cdists.npy \
 	data/xor-transformer-ydh/46-transformer/input_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
-		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 \
+		--title "✗ weight tying (input embeddings)" --path $@ --etc 1000 --ylim ${YLIM} \
 		--indexes 2 3 "✓ distributional hyp." $^
 
 data/xor-transformer-ydh/output_embeddings.pdf: \
@@ -91,25 +94,26 @@ data/xor-transformer-ydh/output_embeddings.pdf: \
 	data/xor-transformer-ydh/45-transformer/output_cdists.npy \
 	data/xor-transformer-ydh/46-transformer/output_cdists.npy
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli view \
-		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 \
+		--title "✗ weight tying (output embeddings)" --path $@ --etc 1000 --ylim ${YLIM} \
 		--indexes 2 3 "✓ distributional hyp." $^
 
 data/xor-transformer-ydh/accuracies.pdf: \
-	data/xor-ndh/42-transformer/valid_epoch.log \
-	data/xor-ndh/42-transformerwt/valid_epoch.log \
-	data/xor-ndh/43-transformer/valid_epoch.log \
-	data/xor-ndh/43-transformerwt/valid_epoch.log \
-	data/xor-ndh/44-transformer/valid_epoch.log \
-	data/xor-ndh/44-transformerwt/valid_epoch.log \
-	data/xor-ndh/45-transformer/valid_epoch.log \
-	data/xor-ndh/45-transformerwt/valid_epoch.log \
-	data/xor-ndh/46-transformer/valid_epoch.log \
-	data/xor-ndh/46-transformerwt/valid_epoch.log
+	data/xor-transformer-ydh/42-transformer/valid_epoch.log \
+	data/xor-transformer-ydh/42-transformerwt/valid_epoch.log \
+	data/xor-transformer-ydh/43-transformer/valid_epoch.log \
+	data/xor-transformer-ydh/43-transformerwt/valid_epoch.log \
+	data/xor-transformer-ydh/44-transformer/valid_epoch.log \
+	data/xor-transformer-ydh/44-transformerwt/valid_epoch.log \
+	data/xor-transformer-ydh/45-transformer/valid_epoch.log \
+	data/xor-transformer-ydh/45-transformerwt/valid_epoch.log \
+	data/xor-transformer-ydh/46-transformer/valid_epoch.log \
+	data/xor-transformer-ydh/46-transformerwt/valid_epoch.log
 	PYTHONPATH=:.:semeqv python3 ./semeqv/cli.py cli accplot \
 		--title "Accuracy" \
 		--inputs $(shell python -c "print(\" --inputs \".join([p  + \" \" + (\"\\\"✓ weight tying\\\"\" if \"wt\" in p else \"\\\"✗ weight tying\\\"\") for p in \"$^\".split(\" \")]))") \
 		--etc 1 \
-		--window 1 \
+		--window ${WINDOW} \
+		--cutoff ${CUTOFF} \
 		--hline 0.7 "black" "--" \
 		--output $@
 

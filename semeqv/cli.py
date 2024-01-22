@@ -59,10 +59,11 @@ def cli(context, compile, detect_anomaly, etv, epochs, seed, trainbar, validbar,
 @click.option("--title"   , "title"   , type=str          , default="")
 @click.option("--show"    , "show"    , type=bool         , default=False)
 @click.option("--etc"     , "etc"     , type=int          , default=1)
+@click.option("--ylim"    , "ylim"    , type=(float,float), default=None)
 @click.option("--path"    , "path"    , type=str          , default="")
 @click.option("--showconf", "showconf", type=bool         , default=True)
 @click.argument("paths", nargs=-1, type=click.Path())
-def view(_, paths, etc, indexes, palette, title, show, path, showconf):
+def view(_, paths, etc, ylim, indexes, palette, title, show, path, showconf):
     dists  = [[numpy.load(path)[::etc,i,j] for path in paths] for i,j,_ in indexes]
     maxlen = max([max(map(len,data)) for data in dists])
     dists  = [[list(trial) + [None] * (maxlen-len(trial)) for trial in data] for data in dists]
@@ -76,6 +77,7 @@ def view(_, paths, etc, indexes, palette, title, show, path, showconf):
          seaborn.lineplot(data=dists, x="step", y="distance", hue="embedding pairs", palette=seaborn.color_palette(palette, len(indexes)), units="trials", estimator=None)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+    if ylim: ax.set_ylim(ylim)
     ax.set_title(title)
     plt.tight_layout()
     if show: plt.show()
@@ -119,21 +121,22 @@ def viewall(_, specials, path):
 @click.option("--inputs"  ,"inputs"  ,type=(click.Path(), str),default=[] , multiple=True)
 @click.option("--window"  ,"window"  ,type=int                ,default=1)
 @click.option("--etc"     ,"etc"     ,type=int                ,default=1)
+@click.option("--cutoff"  ,"cutoff"  ,type=int                ,default=1)
 @click.option("--hline"   ,"hline"   ,type=(float, str, str)  ,default=(0, "red","--"))
 @click.option("--palette" ,"palette" ,type=str                ,default="magma")
 @click.option("--show"    ,"show"    ,type=bool               ,default=False)
 @click.option("--title"   ,"title"   ,type=str                ,default="Accuracy")
 @click.option("--output"  ,"output"  ,type=click.Path()       ,default="")
-@click.option("--showconf", "showconf", type=bool     , default=True)
-def accplot(inputs,title,show,window,hline,etc,palette,showconf,output):
+@click.option("--showconf","showconf", type=bool              ,default=True)
+def accplot(inputs,title,show,window,hline,etc,cutoff,palette,showconf,output):
     accuracies = [[obj["message"]["accuracy"] for _,obj in enumerate(jsonlines.open(path))] for _,(path,_) in enumerate(inputs)]
-    accuracies = [e for x in accuracies for e in numpy.convolve(numpy.array(x), numpy.ones(window)/window, mode='same')]
-    epochs     = [obj["message"][   "epoch"] for _,(path,_) in enumerate(inputs) for _,obj in enumerate(jsonlines.open(path))]
-    trials     = [i                          for i,(path,_) in enumerate(inputs) for _,  _ in enumerate(jsonlines.open(path))]
-    types      = [t                          for _,(path,t) in enumerate(inputs) for _,  _ in enumerate(jsonlines.open(path))]
-    data       = pandas.DataFrame.from_dict({"accuracy":accuracies[::etc], "epoch":epochs[::etc], "trials":trials[::etc], "types":types[::etc]})
-    ax = seaborn.lineplot(data=data, x="epoch", y="accuracy", hue="types",estimator="mean", palette=palette)if showconf else \
-         seaborn.lineplot(data=data, x="epoch", y="accuracy", hue="types", palette=palette, units="trials", estimator=None)
+    accuracies = [e for x in accuracies for e in numpy.convolve(numpy.array(x), numpy.ones(window)/window, mode='same')[:-cutoff:etc]]
+    epochs     = [obj["message"][   "epoch"] for _,(path,_) in enumerate(inputs) for _,obj in list(enumerate(jsonlines.open(path)))[:-cutoff:etc]]
+    trials     = [i                          for i,(path,_) in enumerate(inputs) for _,  _ in list(enumerate(jsonlines.open(path)))[:-cutoff:etc]]
+    types      = [t                          for _,(path,t) in enumerate(inputs) for _,  _ in list(enumerate(jsonlines.open(path)))[:-cutoff:etc]]
+    data       = pandas.DataFrame.from_dict({"accuracy":accuracies, "step":epochs, "trials":trials, "types":types})
+    ax = seaborn.lineplot(data=data, x="step", y="accuracy", hue="types",estimator="mean", palette=palette)if showconf else \
+         seaborn.lineplot(data=data, x="step", y="accuracy", hue="types", palette=palette, units="trials", estimator=None)
     ax.axhline(y=hline[0],c=hline[1],linestyle=hline[2])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
