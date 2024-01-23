@@ -4,8 +4,10 @@ from semeqv.problem.savers     import savers
 from semeqv.problem.callbacks  import callbacks
 from semeqv.problem.schedulers import schedulers
 from semeqv.problem.xor        import xor
+from semeqv.problem.mlm        import mlm
 from semeqv import test, train, Trainer
 import matplotlib.pyplot as plt
+import matplotlib
 import jsonlines
 import seaborn
 import random
@@ -28,15 +30,15 @@ def seed_everything(seed: int):
 
 trainer = Trainer()
 @click.group(invoke_without_command=True, context_settings={'show_default': True})
-@click.option("--seed"    , "seed"     , type=int , default=42)
-@click.option("--compile" , "compile"  , type=bool, default=True)
+@click.option("--seed"           , "seed"           , type=int  , default=42)
+@click.option("--compile"        , "compile"        , type=bool , default=True)
 @click.option("--detect_anomaly" , "detect_anomaly" , type=bool , default=False)
 @click.option("--etv"            , "etv"            , type=int  , default=1)
-@click.option("--epochs"  , "epochs"   , type=int , default=1)
-@click.option("--trainbar", "trainbar" , type=bool, default=True)
-@click.option("--validbar", "validbar" , type=bool, default=True)
-@click.option("--testbar" , "testbar"  , type=bool, default=True)
-@click.option("--epochbar", "epochbar" , type=bool, default=False)
+@click.option("--epochs"         , "epochs"         , type=int  , default=1)
+@click.option("--trainbar"       , "trainbar"       , type=bool , default=True)
+@click.option("--validbar"       , "validbar"       , type=bool , default=True)
+@click.option("--testbar"        , "testbar"        , type=bool , default=True)
+@click.option("--epochbar"       , "epochbar"       , type=bool , default=False)
 @click.pass_context
 def cli(context, compile, detect_anomaly, etv, epochs, seed, trainbar, validbar, testbar, epochbar):
     torch.autograd.set_detect_anomaly(detect_anomaly)
@@ -54,16 +56,24 @@ def cli(context, compile, detect_anomaly, etv, epochs, seed, trainbar, validbar,
 
 @cli.command()
 @click.pass_obj
-@click.option("--indexes" , "indexes" , type=(int,int,str), default=[(0,1,"01"),(2,3,"23")], multiple=True)
-@click.option("--palette" , "palette" , type=str          , default="magma")
-@click.option("--title"   , "title"   , type=str          , default="")
-@click.option("--show"    , "show"    , type=bool         , default=False)
-@click.option("--etc"     , "etc"     , type=int          , default=1)
-@click.option("--ylim"    , "ylim"    , type=(float,float), default=None)
-@click.option("--path"    , "path"    , type=str          , default="")
-@click.option("--showconf", "showconf", type=bool         , default=True)
+@click.option("--indexes"    , "indexes"    , type=(int,int,str), default=[(0,1,"01"),(2,3,"23")], multiple=True)
+@click.option("--palette"    , "palette"    , type=str          , default="magma")
+@click.option("--title"      , "title"      , type=str          , default="")
+@click.option("--show"       , "show"       , type=bool         , default=False)
+@click.option("--etc"        , "etc"        , type=int          , default=1)
+@click.option("--ylim"       , "ylim"       , type=(float,float), default=None)
+@click.option("--path"       , "path"       , type=str          , default="")
+@click.option("--showconf"   , "showconf"   , type=bool         , default=True)
+@click.option("--transparent", "transparent", type=bool         , default=True)
+@click.option("--color"      , "color"      , type=str          , default="black")
 @click.argument("paths", nargs=-1, type=click.Path())
-def view(_, paths, etc, ylim, indexes, palette, title, show, path, showconf):
+def view(_, paths, etc, ylim, indexes, palette, title, show, path, showconf, transparent, color):
+
+    matplotlib.rcParams['text.color']      = color
+    matplotlib.rcParams['axes.labelcolor'] = color
+    matplotlib.rcParams['xtick.color']     = color
+    matplotlib.rcParams['ytick.color']     = color
+
     dists  = [[numpy.load(path)[::etc,i,j] for path in paths] for i,j,_ in indexes]
     maxlen = max([max(map(len,data)) for data in dists])
     dists  = [[list(trial) + [None] * (maxlen-len(trial)) for trial in data] for data in dists]
@@ -75,14 +85,17 @@ def view(_, paths, etc, ylim, indexes, palette, title, show, path, showconf):
     dists = pandas.DataFrame.from_dict({"step":steps, "distance":values, "embedding pairs":types, "trials":trials})
     ax = seaborn.lineplot(data=dists, x="step", y="distance", hue="embedding pairs", palette=seaborn.color_palette(palette, len(indexes))) if showconf else \
          seaborn.lineplot(data=dists, x="step", y="distance", hue="embedding pairs", palette=seaborn.color_palette(palette, len(indexes)), units="trials", estimator=None)
+
+    ax.get_legend().get_frame().set_facecolor('none')
+    ax.spines['bottom'].set_color(color)
+    ax.spines['left' ].set_color(color)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     if ylim: ax.set_ylim(ylim)
     ax.set_title(title)
     plt.tight_layout()
     if show: plt.show()
-    if path: ax.figure.savefig(path)
-
+    if path: ax.figure.savefig(path, transparent=transparent)
 
 @cli.command()
 @click.option("--path"    , "paths"   , type=str      , default=[], multiple=True)
@@ -122,22 +135,26 @@ def viewall(_, specials, path):
 @click.option("--window"  ,"window"  ,type=int                ,default=1)
 @click.option("--etc"     ,"etc"     ,type=int                ,default=1)
 @click.option("--cutoff"  ,"cutoff"  ,type=int                ,default=1)
-@click.option("--hline"   ,"hline"   ,type=(float, str, str)  ,default=(0, "red","--"))
+@click.option("--hline"   ,"hline"   ,type=(float, str, str)  ,default=None)
+@click.option("--xlim"    ,"xlim"    ,type=(int, int)         ,default=None)
+@click.option("--ylim"    ,"ylim"    ,type=(int, int)         ,default=None)
 @click.option("--palette" ,"palette" ,type=str                ,default="magma")
 @click.option("--show"    ,"show"    ,type=bool               ,default=False)
 @click.option("--title"   ,"title"   ,type=str                ,default="Accuracy")
 @click.option("--output"  ,"output"  ,type=click.Path()       ,default="")
 @click.option("--showconf","showconf", type=bool              ,default=True)
-def accplot(inputs,title,show,window,hline,etc,cutoff,palette,showconf,output):
+def accplot(inputs,title,show,window,hline,xlim,ylim,etc,cutoff,palette,showconf,output):
     accuracies = [[obj["message"]["accuracy"] for _,obj in enumerate(jsonlines.open(path))] for _,(path,_) in enumerate(inputs)]
-    accuracies = [e for x in accuracies for e in numpy.convolve(numpy.array(x), numpy.ones(window)/window, mode='same')[:-cutoff:etc]]
-    epochs     = [obj["message"][   "epoch"] for _,(path,_) in enumerate(inputs) for _,obj in list(enumerate(jsonlines.open(path)))[:-cutoff:etc]]
-    trials     = [i                          for i,(path,_) in enumerate(inputs) for _,  _ in list(enumerate(jsonlines.open(path)))[:-cutoff:etc]]
-    types      = [t                          for _,(path,t) in enumerate(inputs) for _,  _ in list(enumerate(jsonlines.open(path)))[:-cutoff:etc]]
+    accuracies = [e for x in accuracies for e in numpy.convolve(numpy.array(x), numpy.ones(window)/window, mode='same')[:(-cutoff if cutoff else None):etc]]
+    epochs     = [obj["message"][   "epoch"] for _,(path,_) in enumerate(inputs) for _,obj in list(enumerate(jsonlines.open(path)))[:(-cutoff if cutoff else None):etc]]
+    trials     = [i                          for i,(path,_) in enumerate(inputs) for _,  _ in list(enumerate(jsonlines.open(path)))[:(-cutoff if cutoff else None):etc]]
+    types      = [t                          for _,(path,t) in enumerate(inputs) for _,  _ in list(enumerate(jsonlines.open(path)))[:(-cutoff if cutoff else None):etc]]
     data       = pandas.DataFrame.from_dict({"accuracy":accuracies, "step":epochs, "trials":trials, "types":types})
     ax = seaborn.lineplot(data=data, x="step", y="accuracy", hue="types",estimator="mean", palette=palette)if showconf else \
          seaborn.lineplot(data=data, x="step", y="accuracy", hue="types", palette=palette, units="trials", estimator=None)
-    ax.axhline(y=hline[0],c=hline[1],linestyle=hline[2])
+    if hline is not None: ax.axhline(y=hline[0],c=hline[1],linestyle=hline[2])
+    if xlim  is not None: ax.set_xlim(*xlim)
+    if ylim  is not None: ax.set_ylim(*ylim)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.set_title(title)
@@ -149,6 +166,7 @@ cli.add_command(savers)
 cli.add_command(loss)
 cli.add_command(callbacks)
 cli.add_command(xor)
+cli.add_command(mlm)
 cli.add_command(optimizers)
 cli.add_command(schedulers)
 cli.add_command(train)

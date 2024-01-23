@@ -1,7 +1,10 @@
 *.pyc
 *.pkl
+.env
+.cache
+.task
 __pycache__
 
 venv
-data*
-
+data
+media

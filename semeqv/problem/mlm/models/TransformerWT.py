@@ -1,0 +1,34 @@
+from semeqv.problem.mlm.models import model
+from semeqv.problem.mlm.models import Transformer
+import click
+
+class TransformerWT(Transformer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.output_embedding = self.input_embedding
+
+@model.group(invoke_without_command=True, context_settings={'show_default': True})
+@click.option("--layers"           , "layers"           , type=int       , default=3)
+@click.option("--embedding_size"   , "embedding_size"   , type=int       , default=128)
+@click.option("--feedforward_size" , "feedforward_size" , type=int       , default=512)
+@click.option("--heads"            , "heads"            , type=int       , default=2)
+@click.option("--dropout"          , "dropout"          , type=float     , default=.1)
+@click.option("--activation"       , "activation"       , type=str       , default="relu")
+@click.option("--device"           , "device"           , type=str       , default="cpu")
+@click.pass_obj
+def transformerwt(trainer, layers, embedding_size, feedforward_size, heads, dropout, activation, device):
+    trainer.set_model(
+        TransformerWT(
+            trainer          = trainer,
+            layers           = layers,
+            embedding_size   = embedding_size,
+            feedforward_size = feedforward_size,
+            heads            = heads,
+            dropout          = dropout,
+            activation       = activation,
+            device           = device
+        )
+    )
+
+

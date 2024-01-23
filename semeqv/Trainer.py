@@ -98,11 +98,11 @@ class Trainer:
 
         # main training loop ###
         for epoch in trainer.epochbar(iter(lst:=range(epoch, trainer.epochs)), total=len(lst)):
-            
             # trainsplit ###
             trainer.model.train()
             trainer.traincallback.start_epoch(epoch)
             for step,batch in (bar:=trainer.trainbar(enumerate(trainer.trainsplit,1), total=len(trainer.trainsplit), colour="white")):
+
                     trainer.traincallback.start_step(step)
                     trainer.optimizer.zero_grad()
                     data = trainer.trainsplit.dataset.todevice(**batch)

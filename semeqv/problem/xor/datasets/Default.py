@@ -114,7 +114,7 @@ def default(trainer, sample_size, zero_semeqv_distribution, one_semeqv_distribut
                 one_semeqv_distribution  = one_semeqv_distribution,
                 seed                     = seed,
                 device                   = device,
-                split                    = "train"
+                split                    = split
             ),
             batch_size  = batch_size,
             num_workers = 0,
